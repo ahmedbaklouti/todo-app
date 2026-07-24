@@ -4,6 +4,7 @@ export const useListsStore = defineStore('lists', {
   state: () => ({
     items: [] as TaskList[],
     selectedListId: null as string | null,
+    isLoading: false,
   }),
   actions: {
     setLists(items: TaskList[]) {
@@ -11,6 +12,50 @@ export const useListsStore = defineStore('lists', {
     },
     selectList(listId: string | null) {
       this.selectedListId = listId;
+    },
+    async fetchLists() {
+      this.isLoading = true;
+
+      try {
+        const items = await useApiFetch<TaskList[]>('/lists');
+        this.setLists(items);
+
+        if (items.length === 0) {
+          this.selectedListId = null;
+          return;
+        }
+
+        const selectedStillExists = items.some((item) => item.id === this.selectedListId);
+
+        if (!selectedStillExists) {
+          this.selectedListId = items[0]?.id ?? null;
+        }
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    async createList(name: string) {
+      const item = await useApiFetch<TaskList>('/lists', {
+        method: 'POST',
+        body: {
+          name,
+        },
+      });
+
+      this.items.push(item);
+      this.selectedListId = item.id;
+      return item;
+    },
+    async deleteList(id: string) {
+      await useApiFetch(`/lists/${id}`, {
+        method: 'DELETE',
+      });
+
+      this.items = this.items.filter((item) => item.id !== id);
+
+      if (this.selectedListId === id) {
+        this.selectedListId = this.items[0]?.id ?? null;
+      }
     },
   },
 });

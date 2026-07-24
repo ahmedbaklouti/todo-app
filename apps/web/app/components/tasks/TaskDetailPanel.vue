@@ -4,6 +4,14 @@ const tasksStore = useTasksStore();
 const selectedTask = computed(() =>
   tasksStore.items.find((task) => task.id === tasksStore.selectedTaskId) ?? null,
 );
+
+async function removeTask(id: string) {
+  if (!window.confirm('Supprimer cette tache ?')) {
+    return;
+  }
+
+  await tasksStore.deleteTask(id);
+}
 </script>
 
 <template>
@@ -16,11 +24,14 @@ const selectedTask = computed(() =>
 
       <div class="space-y-3 text-sm text-zinc-600">
         <p><span class="font-medium text-zinc-900">Description :</span> {{ selectedTask.longDescription || 'Aucune description longue' }}</p>
-        <p><span class="font-medium text-zinc-900">Echeance :</span> {{ selectedTask.dueDate }}</p>
-        <p><span class="font-medium text-zinc-900">Creee le :</span> {{ selectedTask.createdAt }}</p>
+        <p><span class="font-medium text-zinc-900">Echeance :</span> {{ selectedTask.dueDate.slice(0, 10) }}</p>
+        <p><span class="font-medium text-zinc-900">Creee le :</span> {{ selectedTask.createdAt.slice(0, 10) }}</p>
       </div>
 
-      <button class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700">
+      <button
+        class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700"
+        @click="removeTask(selectedTask.id)"
+      >
         Supprimer la tache
       </button>
     </div>

@@ -6,6 +6,6 @@ import { ListsRepository } from './repositories/lists.repository';
 @Module({
   controllers: [ListsController],
   providers: [ListsService, ListsRepository],
-  exports: [ListsService],
+  exports: [ListsService, ListsRepository],
 })
 export class ListsModule {}

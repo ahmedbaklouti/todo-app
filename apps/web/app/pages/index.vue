@@ -1,59 +1,26 @@
 <script setup lang="ts">
-import type { TaskItem, TaskList } from '@todo-app/shared-types';
-
 const listsStore = useListsStore();
 const tasksStore = useTasksStore();
 const authStore = useAuthStore();
-const currentUserId = authStore.user?.id ?? 'user-session';
-
-const demoLists: TaskList[] = [
-  {
-    id: 'list-1',
-    userId: currentUserId,
-    name: 'Recrutement',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'list-2',
-    userId: currentUserId,
-    name: 'Produit',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const demoTasks: TaskItem[] = [
-  {
-    id: 'task-1',
-    listId: 'list-1',
-    shortDescription: 'Preparer la restitution du test technique',
-    longDescription: 'Finaliser le monorepo, la documentation et le plan de livraison.',
-    dueDate: '2026-07-30',
-    completed: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'task-2',
-    listId: 'list-1',
-    shortDescription: 'Partager le repository GitHub',
-    longDescription: 'Verifier README, CI et docker-compose avant partage.',
-    dueDate: '2026-07-31',
-    completed: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-listsStore.setLists(demoLists);
-listsStore.selectList(demoLists[0]?.id ?? null);
-tasksStore.setTasks(demoTasks);
 
 async function logout() {
   await authStore.logout();
   await navigateTo('/login');
 }
+
+onMounted(async () => {
+  await listsStore.fetchLists();
+});
+
+watch(
+  () => listsStore.selectedListId,
+  async (listId) => {
+    await tasksStore.fetchTasks(listId);
+  },
+  {
+    immediate: true,
+  },
+);
 </script>
 
 <template>
@@ -64,7 +31,7 @@ async function logout() {
         <div>
           <h1 class="text-3xl font-semibold text-zinc-900">Espace de travail</h1>
           <p class="mt-1 text-sm text-zinc-500">
-            Session restauree via refresh token, en attendant le branchement complet des CRUD listes et taches.
+            Listes et taches chargees depuis l'API NestJS securisee par JWT.
           </p>
         </div>
         <div class="flex items-center gap-3">

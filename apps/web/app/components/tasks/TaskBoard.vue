@@ -1,5 +1,57 @@
 <script setup lang="ts">
+const listsStore = useListsStore();
 const tasksStore = useTasksStore();
+
+const pending = ref(false);
+const errorMessage = ref('');
+
+const taskForm = reactive({
+  shortDescription: '',
+  longDescription: '',
+  dueDate: '',
+});
+
+const selectedList = computed(
+  () => listsStore.items.find((item) => item.id === listsStore.selectedListId) ?? null,
+);
+
+async function createTask() {
+  if (!selectedList.value || !taskForm.shortDescription.trim() || !taskForm.dueDate) {
+    return;
+  }
+
+  pending.value = true;
+  errorMessage.value = '';
+
+  try {
+    await tasksStore.createTask({
+      listId: selectedList.value.id,
+      shortDescription: taskForm.shortDescription.trim(),
+      longDescription: taskForm.longDescription.trim() || undefined,
+      dueDate: taskForm.dueDate,
+    });
+
+    taskForm.shortDescription = '';
+    taskForm.longDescription = '';
+    taskForm.dueDate = '';
+  } catch (error) {
+    errorMessage.value =
+      typeof error === 'object' &&
+      error !== null &&
+      'data' in error &&
+      typeof error.data === 'object' &&
+      error.data !== null &&
+      'message' in error.data
+        ? String(error.data.message)
+        : 'Impossible de creer la tache.';
+  } finally {
+    pending.value = false;
+  }
+}
+
+async function toggleTask(taskId: string, completed: boolean) {
+  await tasksStore.toggleTaskStatus(taskId, completed);
+}
 </script>
 
 <template>
@@ -7,46 +59,95 @@ const tasksStore = useTasksStore();
     <div class="mb-6 flex items-end justify-between">
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Taches</p>
-        <h2 class="text-2xl font-semibold text-zinc-900">Liste active</h2>
+        <h2 class="text-2xl font-semibold text-zinc-900">
+          {{ selectedList?.name ?? 'Liste active' }}
+        </h2>
       </div>
-      <button class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700">
-        Ajouter une tache
-      </button>
     </div>
 
-    <div v-if="tasksStore.activeTasks.length === 0" class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
+    <div v-if="!selectedList" class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
       Selectionne une liste puis ajoute ta premiere tache.
     </div>
 
-    <div v-else class="space-y-3">
-      <button
-        v-for="task in tasksStore.activeTasks"
-        :key="task.id"
-        class="flex w-full items-start justify-between rounded-2xl border border-zinc-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
-        @click="tasksStore.selectTask(task.id)"
-      >
-        <div>
-          <p class="text-sm font-medium text-zinc-900">{{ task.shortDescription }}</p>
-          <p class="mt-1 text-xs text-zinc-500">Echeance {{ task.dueDate }}</p>
-        </div>
-        <span class="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-500">active</span>
-      </button>
-    </div>
-
-    <details class="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-      <summary class="cursor-pointer text-sm font-medium text-zinc-700">
-        Mes taches terminees ({{ tasksStore.completedTasks.length }})
-      </summary>
-
-      <div class="mt-4 space-y-2">
-        <div
-          v-for="task in tasksStore.completedTasks"
-          :key="task.id"
-          class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+    <div v-else class="space-y-6">
+      <form class="grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4" @submit.prevent="createTask">
+        <input
+          v-model="taskForm.shortDescription"
+          type="text"
+          class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+          placeholder="Description courte"
         >
-          {{ task.shortDescription }}
+        <textarea
+          v-model="taskForm.longDescription"
+          class="min-h-24 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+          placeholder="Description longue optionnelle"
+        />
+        <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+          <input
+            v-model="taskForm.dueDate"
+            type="date"
+            class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+          >
+          <button
+            class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+            :disabled="pending"
+          >
+            {{ pending ? 'Creation...' : 'Ajouter une tache' }}
+          </button>
         </div>
+        <p v-if="errorMessage" class="text-sm text-rose-600">
+          {{ errorMessage }}
+        </p>
+      </form>
+
+      <div v-if="tasksStore.activeTasks.length === 0" class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
+        Aucune tache active sur cette liste.
       </div>
-    </details>
+
+      <div v-else class="space-y-3">
+        <button
+          v-for="task in tasksStore.activeTasks"
+          :key="task.id"
+          class="flex w-full items-start justify-between rounded-2xl border border-zinc-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
+          @click="tasksStore.selectTask(task.id)"
+        >
+          <div>
+            <p class="text-sm font-medium text-zinc-900">{{ task.shortDescription }}</p>
+            <p class="mt-1 text-xs text-zinc-500">Echeance {{ task.dueDate.slice(0, 10) }}</p>
+          </div>
+          <span class="flex items-center gap-2 text-xs">
+            <span class="rounded-full bg-zinc-100 px-2 py-1 text-zinc-500">active</span>
+            <span
+              class="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700"
+              @click.stop="toggleTask(task.id, true)"
+            >
+              terminer
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <details class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+        <summary class="cursor-pointer text-sm font-medium text-zinc-700">
+          Mes taches terminees ({{ tasksStore.completedTasks.length }})
+        </summary>
+
+        <div class="mt-4 space-y-2">
+          <div
+            v-for="task in tasksStore.completedTasks"
+            :key="task.id"
+            class="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+          >
+            <span>{{ task.shortDescription }}</span>
+            <button
+              class="rounded-full bg-white px-3 py-1 text-xs text-emerald-700 transition hover:bg-emerald-100"
+              @click="toggleTask(task.id, false)"
+            >
+              reactiver
+            </button>
+          </div>
+        </div>
+      </details>
+    </div>
   </section>
 </template>

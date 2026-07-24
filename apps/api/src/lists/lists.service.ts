@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateListDto } from './dto/create-list.dto';
 import { ListsRepository } from './repositories/lists.repository';
 
@@ -10,19 +15,28 @@ export class ListsService {
     return this.listsRepository.findByUserId(userId);
   }
 
-  create(userId: string, dto: CreateListDto) {
-    return {
-      message: 'Create list flow scaffolded',
-      userId,
-      dto,
-    };
+  async create(userId: string, dto: CreateListDto) {
+    try {
+      return await this.listsRepository.create(userId, dto.name.trim());
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('A list with this name already exists');
+      }
+
+      throw error;
+    }
   }
 
-  remove(userId: string, id: string) {
-    return {
-      message: 'Delete list flow scaffolded',
-      userId,
-      id,
-    };
+  async remove(userId: string, id: string) {
+    const existingList = await this.listsRepository.findByIdAndUserId(id, userId);
+
+    if (!existingList) {
+      throw new NotFoundException('List not found');
+    }
+
+    return this.listsRepository.delete(id);
   }
 }

@@ -11,4 +11,28 @@ export class ListsRepository {
       orderBy: { createdAt: 'asc' },
     });
   }
+
+  findByIdAndUserId(id: string, userId: string) {
+    return this.prisma.taskList.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+  }
+
+  create(userId: string, name: string) {
+    return this.prisma.taskList.create({
+      data: {
+        userId,
+        name,
+      },
+    });
+  }
+
+  delete(id: string) {
+    return this.prisma.taskList.delete({
+      where: { id },
+    });
+  }
 }
