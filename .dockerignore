@@ -1,0 +1,12 @@
+node_modules
+.pnpm-store
+.git
+.trae
+dist
+coverage
+.nuxt
+.output
+.idea
+.vscode
+*.log
+.env
