@@ -5,6 +5,11 @@ export type AuthUser = {
   email: string;
 };
 
+export type AuthSession = {
+  user: AuthUser;
+  accessToken: string;
+};
+
 export type TaskList = {
   id: string;
   userId: string;

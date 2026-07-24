@@ -1,39 +1,104 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const session = await this.authService.register(dto);
+
+    response.cookie(
+      this.authService.getRefreshCookieName(),
+      session.refreshToken,
+      this.authService.getRefreshCookieOptions(),
+    );
+
+    return {
+      user: session.user,
+      accessToken: session.accessToken,
+    };
   }
 
   @HttpCode(200)
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const session = await this.authService.login(dto);
+
+    response.cookie(
+      this.authService.getRefreshCookieName(),
+      session.refreshToken,
+      this.authService.getRefreshCookieOptions(),
+    );
+
+    return {
+      user: session.user,
+      accessToken: session.accessToken,
+    };
   }
 
   @HttpCode(200)
   @Post('refresh')
-  refresh() {
-    return this.authService.refresh();
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = request.cookies?.[this.authService.getRefreshCookieName()];
+    const session = await this.authService.refresh(refreshToken);
+
+    response.cookie(
+      this.authService.getRefreshCookieName(),
+      session.refreshToken,
+      this.authService.getRefreshCookieOptions(),
+    );
+
+    return {
+      user: session.user,
+      accessToken: session.accessToken,
+    };
   }
 
   @HttpCode(200)
   @Post('logout')
-  logout() {
-    return this.authService.logout();
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = request.cookies?.[this.authService.getRefreshCookieName()];
+    const result = await this.authService.logout(refreshToken);
+
+    response.clearCookie(
+      this.authService.getRefreshCookieName(),
+      this.authService.getRefreshCookieClearOptions(),
+    );
+
+    return result;
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('me')
-  me() {
-    return {
-      message: 'Current user endpoint scaffolded',
-    };
+  me(@CurrentUser() user: { id: string }) {
+    return this.authService.getMe(user.id);
   }
 }

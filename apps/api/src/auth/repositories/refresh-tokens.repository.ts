@@ -11,4 +11,32 @@ export class RefreshTokensRepository {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  findByTokenHash(tokenHash: string) {
+    return this.prisma.refreshToken.findFirst({
+      where: {
+        tokenHash,
+        revokedAt: null,
+      },
+    });
+  }
+
+  create(userId: string, tokenHash: string, expiresAt: Date) {
+    return this.prisma.refreshToken.create({
+      data: {
+        userId,
+        tokenHash,
+        expiresAt,
+      },
+    });
+  }
+
+  revokeById(id: string) {
+    return this.prisma.refreshToken.update({
+      where: { id },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  }
 }

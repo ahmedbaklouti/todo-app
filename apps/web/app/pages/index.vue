@@ -4,30 +4,19 @@ import type { TaskItem, TaskList } from '@todo-app/shared-types';
 const listsStore = useListsStore();
 const tasksStore = useTasksStore();
 const authStore = useAuthStore();
-
-if (!authStore.user) {
-  authStore.setSession(
-    {
-      id: 'demo-user',
-      firstName: 'Demo',
-      lastName: 'User',
-      email: 'demo@libheros.local',
-    },
-    'demo-token',
-  );
-}
+const currentUserId = authStore.user?.id ?? 'user-session';
 
 const demoLists: TaskList[] = [
   {
     id: 'list-1',
-    userId: 'demo-user',
+    userId: currentUserId,
     name: 'Recrutement',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
     id: 'list-2',
-    userId: 'demo-user',
+    userId: currentUserId,
     name: 'Produit',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -60,6 +49,11 @@ const demoTasks: TaskItem[] = [
 listsStore.setLists(demoLists);
 listsStore.selectList(demoLists[0]?.id ?? null);
 tasksStore.setTasks(demoTasks);
+
+async function logout() {
+  await authStore.logout();
+  await navigateTo('/login');
+}
 </script>
 
 <template>
@@ -70,11 +64,19 @@ tasksStore.setTasks(demoTasks);
         <div>
           <h1 class="text-3xl font-semibold text-zinc-900">Espace de travail</h1>
           <p class="mt-1 text-sm text-zinc-500">
-            Base Nuxt + Pinia + Socket.io prete pour brancher l'API NestJS.
+            Session restauree via refresh token, en attendant le branchement complet des CRUD listes et taches.
           </p>
         </div>
-        <div class="rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-          {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
+        <div class="flex items-center gap-3">
+          <div class="rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
+            {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
+          </div>
+          <button
+            class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
+            @click="logout"
+          >
+            Se deconnecter
+          </button>
         </div>
       </div>
     </header>
