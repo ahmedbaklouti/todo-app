@@ -16,7 +16,7 @@ L'objectif est de livrer une application type Wunderlist / Google Tasks avec :
 
 ### Front-end
 
-- `Nuxt 3`
+- `Nuxt 4`
 - `Vue 3` avec Composition API
 - `Pinia`
 - `Tailwind CSS`
@@ -53,6 +53,12 @@ Sous Windows PowerShell, la deuxieme commande peut etre remplacee par :
 ```powershell
 Copy-Item .env.example .env
 ```
+
+Une fois la stack demarree :
+
+- front : `http://localhost:3000`
+- API : `http://localhost:3001`
+- Swagger : `http://localhost:3001/api`
 
 ## Architecture
 
@@ -219,6 +225,23 @@ Le client s'abonne aux événements de la room active et met à jour `Pinia` dir
 - middleware Nuxt de protection des routes,
 - stores Pinia synchronises avec l'API et le socket.
 
+## Parcours reviewer conseille
+
+Pour valider rapidement le livrable :
+
+1. ouvrir l'application front,
+2. creer un compte depuis l'ecran d'authentification,
+3. creer une liste,
+4. creer une ou plusieurs taches,
+5. ouvrir un second onglet sur la meme session,
+6. modifier une tache, la terminer ou la supprimer pour constater la synchro temps reel.
+
+Le endpoint racine de l'API retourne egalement un statut simple utile pour les checks de sante :
+
+```text
+GET http://localhost:3001/
+```
+
 ## Documentation API
 
 La documentation HTTP est générée automatiquement avec `Swagger`.
@@ -272,6 +295,12 @@ Un pipeline `GitHub Actions` est configure sur chaque `push` et `pull request` :
 - tests unitaires API,
 - test e2e API,
 - build API et front.
+
+## Limites connues
+
+- le workflow CI verifie le back et les builds, mais pas encore de tests composants front,
+- la persistance Prisma est initialisee via `prisma db push`, ce qui est pratique pour un test technique mais moins strict qu'un vrai historique de migrations versionnees,
+- le test e2e actuel est volontairement pragmatique pour garantir une execution stable dans la CI.
 
 ## Ce que je ferais différemment avec plus de temps
 
