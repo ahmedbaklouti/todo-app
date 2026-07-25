@@ -110,7 +110,10 @@ describe('TasksService', () => {
       updatedAt: '2026-07-25T11:00:00.000Z',
     };
 
-    tasksRepository.findByIdAndUserId.mockResolvedValue({ id: 'task-1', listId: 'list-1' });
+    tasksRepository.findByIdAndUserId.mockResolvedValue({
+      id: 'task-1',
+      listId: 'list-1',
+    });
     tasksRepository.updateStatus.mockResolvedValue(updatedTask);
 
     const result = await tasksService.updateStatus('user-1', 'task-1', {
@@ -133,7 +136,10 @@ describe('TasksService', () => {
       updatedAt: '2026-07-25T12:00:00.000Z',
     };
 
-    tasksRepository.findByIdAndUserId.mockResolvedValue({ id: 'task-1', listId: 'list-1' });
+    tasksRepository.findByIdAndUserId.mockResolvedValue({
+      id: 'task-1',
+      listId: 'list-1',
+    });
     tasksRepository.update.mockResolvedValue(updatedTask);
 
     const result = await tasksService.update('user-1', 'task-1', {
@@ -147,8 +153,14 @@ describe('TasksService', () => {
   });
 
   it('deletes a task and emits task:deleted', async () => {
-    tasksRepository.findByIdAndUserId.mockResolvedValue({ id: 'task-1', listId: 'list-1' });
-    tasksRepository.delete.mockResolvedValue({ id: 'task-1', listId: 'list-1' });
+    tasksRepository.findByIdAndUserId.mockResolvedValue({
+      id: 'task-1',
+      listId: 'list-1',
+    });
+    tasksRepository.delete.mockResolvedValue({
+      id: 'task-1',
+      listId: 'list-1',
+    });
 
     const result = await tasksService.remove('user-1', 'task-1');
 

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import ConfirmDialog from '../ConfirmDialog.vue';
+
 const tasksStore = useTasksStore();
 const pending = ref(false);
 const errorMessage = ref('');
+const isDeleteDialogOpen = ref(false);
 
 const selectedTask = computed(() =>
   tasksStore.items.find((task) => task.id === tasksStore.selectedTaskId) ?? null,
@@ -23,6 +26,10 @@ watch(
   },
   { immediate: true },
 );
+
+function closePanel() {
+  tasksStore.selectTask(null);
+}
 
 async function saveTask() {
   if (!selectedTask.value) {
@@ -53,21 +60,38 @@ async function saveTask() {
   }
 }
 
-async function removeTask(id: string) {
-  if (!window.confirm('Supprimer cette tache ?')) {
+function askTaskDeletion() {
+  isDeleteDialogOpen.value = true;
+}
+
+function syncDeleteDialogState(value: boolean) {
+  isDeleteDialogOpen.value = value;
+}
+
+async function confirmTaskDeletion() {
+  if (!selectedTask.value) {
     return;
   }
 
-  await tasksStore.deleteTask(id);
+  await tasksStore.deleteTask(selectedTask.value.id);
+  isDeleteDialogOpen.value = false;
 }
 </script>
 
 <template>
-  <aside class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
-    <div v-if="selectedTask" class="space-y-4">
-      <div>
-        <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Detail</p>
-        <h2 class="mt-2 text-xl font-semibold text-zinc-900">{{ selectedTask.shortDescription }}</h2>
+  <aside v-if="selectedTask" class="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div class="space-y-4">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Detail</p>
+          <h2 class="mt-2 text-xl font-semibold text-zinc-900">{{ selectedTask.shortDescription }}</h2>
+        </div>
+        <button
+          class="rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-900"
+          @click="closePanel"
+        >
+          Fermer
+        </button>
       </div>
 
       <form class="space-y-3" @submit.prevent="saveTask">
@@ -116,14 +140,20 @@ async function removeTask(id: string) {
 
       <button
         class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-rose-700"
-        @click="removeTask(selectedTask.id)"
+        @click="askTaskDeletion"
       >
         Supprimer la tache
       </button>
     </div>
 
-    <div v-else class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
-      Clique sur une tache pour afficher son detail.
-    </div>
+    <ConfirmDialog
+      :model-value="isDeleteDialogOpen"
+      title="Supprimer cette tache ?"
+      message="Cette action est definitive et retirera la tache de la liste."
+      confirm-label="Supprimer la tache"
+      tone="danger"
+      @update:model-value="syncDeleteDialogState"
+      @confirm="confirmTaskDeletion"
+    />
   </aside>
 </template>

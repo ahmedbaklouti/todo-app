@@ -1,349 +1,321 @@
-import {
-  Body,
-  CanActivate,
-  Controller,
-  createParamDecorator,
-  Delete,
-  ExecutionContext,
-  Get,
-  HttpCode,
-  INestApplication,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UnauthorizedException,
-  UseGuards,
-  ValidationPipe,
-} from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import cookieParser from 'cookie-parser';
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { IsDateString, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { AppModule } from '../src/app.module';
+import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { TasksGateway } from '../src/tasks/tasks.gateway';
 
-type TestUser = {
+type UserRecord = {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
+  passwordHash: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-type TestTaskList = {
+type TaskListRecord = {
   id: string;
   userId: string;
   name: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-type TestTask = {
+type TaskRecord = {
   id: string;
   listId: string;
   shortDescription: string;
   longDescription: string | null;
-  dueDate: string;
+  dueDate: Date;
   completed: boolean;
-  createdAt: string;
-  updatedAt: string;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-let authServiceRef: TestAuthService;
+type RefreshTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  createdAt: Date;
+  revokedAt: Date | null;
+};
 
-class RegisterDto {
-  @IsString()
-  firstName!: string;
+function createPrismaMock() {
+  const users: UserRecord[] = [];
+  const taskLists: TaskListRecord[] = [];
+  const tasks: TaskRecord[] = [];
+  const refreshTokens: RefreshTokenRecord[] = [];
 
-  @IsString()
-  lastName!: string;
+  return {
+    $connect: jest.fn(),
+    user: {
+      findUnique: jest.fn(
+        ({ where }: { where: { id?: string; email?: string } }) => {
+          if (where.id) {
+            return users.find((user) => user.id === where.id) ?? null;
+          }
 
-  @IsEmail()
-  email!: string;
+          if (where.email) {
+            return users.find((user) => user.email === where.email) ?? null;
+          }
 
-  @IsEmail()
-  emailConfirmation!: string;
+          return null;
+        },
+      ),
+      create: jest.fn(
+        ({
+          data,
+        }: {
+          data: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>;
+        }) => {
+          const now = new Date();
+          const user: UserRecord = {
+            id: randomUUID(),
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            passwordHash: data.passwordHash,
+            createdAt: now,
+            updatedAt: now,
+          };
 
-  @IsString()
-  @MinLength(8)
-  password!: string;
+          users.push(user);
+          return user;
+        },
+      ),
+    },
+    taskList: {
+      findMany: jest.fn(({ where }: { where: { userId: string } }) =>
+        taskLists
+          .filter((list) => list.userId === where.userId)
+          .sort(
+            (left, right) =>
+              left.createdAt.getTime() - right.createdAt.getTime(),
+          ),
+      ),
+      findFirst: jest.fn(
+        ({ where }: { where: { id: string; userId: string } }) =>
+          taskLists.find(
+            (list) => list.id === where.id && list.userId === where.userId,
+          ) ?? null,
+      ),
+      create: jest.fn(
+        ({ data }: { data: { userId: string; name: string } }) => {
+          const now = new Date();
+          const taskList: TaskListRecord = {
+            id: randomUUID(),
+            userId: data.userId,
+            name: data.name,
+            createdAt: now,
+            updatedAt: now,
+          };
 
-  @IsString()
-  @MinLength(8)
-  passwordConfirmation!: string;
-}
+          taskLists.push(taskList);
+          return taskList;
+        },
+      ),
+      delete: jest.fn(({ where }: { where: { id: string } }) => {
+        const index = taskLists.findIndex((list) => list.id === where.id);
+        const [deletedList] = taskLists.splice(index, 1);
 
-class LoginDto {
-  @IsEmail()
-  email!: string;
+        for (let taskIndex = tasks.length - 1; taskIndex >= 0; taskIndex -= 1) {
+          if (tasks[taskIndex]?.listId === where.id) {
+            tasks.splice(taskIndex, 1);
+          }
+        }
 
-  @IsString()
-  @MinLength(8)
-  password!: string;
-}
+        return deletedList;
+      }),
+    },
+    task: {
+      findMany: jest.fn(
+        ({ where }: { where: { listId: string; list: { userId: string } } }) =>
+          tasks
+            .filter((task) => {
+              const list = taskLists.find((item) => item.id === task.listId);
+              return (
+                task.listId === where.listId &&
+                list?.userId === where.list.userId
+              );
+            })
+            .sort(
+              (left, right) =>
+                left.createdAt.getTime() - right.createdAt.getTime(),
+            ),
+      ),
+      findFirst: jest.fn(
+        ({ where }: { where: { id: string; list: { userId: string } } }) =>
+          tasks.find((task) => {
+            const list = taskLists.find((item) => item.id === task.listId);
+            return task.id === where.id && list?.userId === where.list.userId;
+          }) ?? null,
+      ),
+      create: jest.fn(
+        ({
+          data,
+        }: {
+          data: {
+            listId: string;
+            shortDescription: string;
+            longDescription: string | null;
+            dueDate: Date;
+          };
+        }) => {
+          const now = new Date();
+          const task: TaskRecord = {
+            id: randomUUID(),
+            listId: data.listId,
+            shortDescription: data.shortDescription,
+            longDescription: data.longDescription,
+            dueDate: data.dueDate,
+            completed: false,
+            completedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          };
 
-class CreateListDto {
-  @IsString()
-  @MinLength(1)
-  name!: string;
-}
+          tasks.push(task);
+          return task;
+        },
+      ),
+      update: jest.fn(
+        ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: Partial<
+            Pick<
+              TaskRecord,
+              | 'shortDescription'
+              | 'longDescription'
+              | 'dueDate'
+              | 'completed'
+              | 'completedAt'
+            >
+          >;
+        }) => {
+          const task = tasks.find((item) => item.id === where.id);
 
-class CreateTaskDto {
-  @IsString()
-  listId!: string;
+          if (!task) {
+            return null;
+          }
 
-  @IsString()
-  @MinLength(1)
-  shortDescription!: string;
+          Object.assign(task, data, { updatedAt: new Date() });
+          return task;
+        },
+      ),
+      delete: jest.fn(({ where }: { where: { id: string } }) => {
+        const index = tasks.findIndex((task) => task.id === where.id);
+        const [deletedTask] = tasks.splice(index, 1);
+        return deletedTask;
+      }),
+    },
+    refreshToken: {
+      findMany: jest.fn(({ where }: { where: { userId: string } }) =>
+        refreshTokens
+          .filter((token) => token.userId === where.userId)
+          .sort(
+            (left, right) =>
+              right.createdAt.getTime() - left.createdAt.getTime(),
+          ),
+      ),
+      findFirst: jest.fn(
+        ({
+          where,
+        }: {
+          where: {
+            tokenHash: string;
+            revokedAt: null;
+          };
+        }) =>
+          refreshTokens.find(
+            (token) =>
+              token.tokenHash === where.tokenHash &&
+              token.revokedAt === where.revokedAt,
+          ) ?? null,
+      ),
+      create: jest.fn(
+        ({
+          data,
+        }: {
+          data: {
+            userId: string;
+            tokenHash: string;
+            expiresAt: Date;
+          };
+        }) => {
+          const refreshToken: RefreshTokenRecord = {
+            id: randomUUID(),
+            userId: data.userId,
+            tokenHash: data.tokenHash,
+            expiresAt: data.expiresAt,
+            createdAt: new Date(),
+            revokedAt: null,
+          };
 
-  @IsOptional()
-  @IsString()
-  longDescription?: string;
+          refreshTokens.push(refreshToken);
+          return refreshToken;
+        },
+      ),
+      update: jest.fn(
+        ({
+          where,
+          data,
+        }: {
+          where: { id: string };
+          data: { revokedAt: Date };
+        }) => {
+          const refreshToken = refreshTokens.find(
+            (item) => item.id === where.id,
+          );
 
-  @IsDateString()
-  dueDate!: string;
-}
+          if (!refreshToken) {
+            return null;
+          }
 
-class TestAuthService {
-  private readonly users = new Map<string, TestUser>();
-  private readonly tokens = new Map<string, string>();
-  private sequence = 1;
-
-  constructor() {
-    this.users.set('demo@libheros.local', {
-      id: 'user-1',
-      firstName: 'Demo',
-      lastName: 'User',
-      email: 'demo@libheros.local',
-      password: 'Password123',
-    });
-  }
-
-  async register(payload: RegisterDto) {
-    const email = payload.email.toLowerCase().trim();
-    const user: TestUser = {
-      id: `user-${++this.sequence}`,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email,
-      password: payload.password,
-    };
-
-    this.users.set(email, user);
-    return this.createSession(user);
-  }
-
-  async login(payload: LoginDto) {
-    const email = payload.email.toLowerCase().trim();
-    const user = this.users.get(email);
-
-    if (!user || user.password !== payload.password) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
-    return this.createSession(user);
-  }
-
-  getRefreshCookieName() {
-    return 'refresh_token';
-  }
-
-  getRefreshCookieOptions() {
-    return {
-      httpOnly: true,
-      sameSite: 'lax' as const,
-      path: '/auth',
-    };
-  }
-
-  getUserByAccessToken(token: string | undefined) {
-    if (!token) {
-      return null;
-    }
-
-    const userId = this.tokens.get(token);
-
-    if (!userId) {
-      return null;
-    }
-
-    return [...this.users.values()].find((user) => user.id === userId) ?? null;
-  }
-
-  private createSession(user: TestUser) {
-    const accessToken = `token-${user.id}-${Date.now()}`;
-    this.tokens.set(accessToken, user.id);
-
-    return {
-      user: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-      },
-      accessToken,
-      refreshToken: `refresh-${user.id}-${Date.now()}`,
-    };
-  }
-}
-
-class TestListsService {
-  private readonly lists: TestTaskList[] = [];
-  private sequence = 1;
-
-  findAll(userId: string) {
-    return this.lists.filter((list) => list.userId === userId);
-  }
-
-  create(userId: string, dto: CreateListDto) {
-    const now = new Date().toISOString();
-    const list: TestTaskList = {
-      id: `list-${this.sequence++}`,
-      userId,
-      name: dto.name,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.lists.push(list);
-    return list;
-  }
-}
-
-class TestTasksService {
-  private readonly tasks: TestTask[] = [];
-  private sequence = 1;
-
-  findAll(_userId: string, listId: string) {
-    return this.tasks.filter((task) => task.listId === listId);
-  }
-
-  create(_userId: string, dto: CreateTaskDto) {
-    const now = new Date().toISOString();
-    const task: TestTask = {
-      id: `task-${this.sequence++}`,
-      listId: dto.listId,
-      shortDescription: dto.shortDescription,
-      longDescription: dto.longDescription ?? null,
-      dueDate: new Date(dto.dueDate).toISOString(),
-      completed: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.tasks.push(task);
-    return task;
-  }
-
-  remove(_userId: string, id: string) {
-    const index = this.tasks.findIndex((task) => task.id === id);
-    const [deletedTask] = this.tasks.splice(index, 1);
-    return deletedTask;
-  }
-}
-
-class TestJwtAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext) {
-    const request = context.switchToHttp().getRequest<{
-      headers: Record<string, string | undefined>;
-      user?: TestUser;
-    }>();
-    const authorization = request.headers.authorization;
-    const accessToken = authorization?.startsWith('Bearer ')
-      ? authorization.slice(7)
-      : undefined;
-    const user = authServiceRef.getUserByAccessToken(accessToken);
-
-    if (!user) {
-      throw new UnauthorizedException('Unauthorized');
-    }
-
-    request.user = user;
-    return true;
-  }
-}
-
-const ReqUser = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
-  const request = ctx.switchToHttp().getRequest<{ user: TestUser }>();
-  return request.user;
-});
-
-@Controller('auth')
-class TestAuthController {
-  constructor(private readonly authService: TestAuthService) {}
-
-  @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    const session = await this.authService.register(dto);
-    return {
-      user: session.user,
-      accessToken: session.accessToken,
-    };
-  }
-
-  @Post('login')
-  @HttpCode(200)
-  async login(@Body() dto: LoginDto) {
-    const session = await this.authService.login(dto);
-    return {
-      user: session.user,
-      accessToken: session.accessToken,
-    };
-  }
-}
-
-@UseGuards(TestJwtAuthGuard)
-@Controller('lists')
-class TestListsController {
-  constructor(private readonly listsService: TestListsService) {}
-
-  @Get()
-  findAll(@ReqUser() user: TestUser) {
-    return this.listsService.findAll(user.id);
-  }
-
-  @Post()
-  create(@ReqUser() user: TestUser, @Body() dto: CreateListDto) {
-    return this.listsService.create(user.id, dto);
-  }
-}
-
-@UseGuards(TestJwtAuthGuard)
-@Controller('tasks')
-class TestTasksController {
-  constructor(private readonly tasksService: TestTasksService) {}
-
-  @Get()
-  findAll(@ReqUser() user: TestUser, @Query('listId') listId: string) {
-    return this.tasksService.findAll(user.id, listId);
-  }
-
-  @Post()
-  create(@ReqUser() user: TestUser, @Body() dto: CreateTaskDto) {
-    return this.tasksService.create(user.id, dto);
-  }
-
-  @Delete(':id')
-  remove(@ReqUser() user: TestUser, @Param('id') id: string) {
-    return this.tasksService.remove(user.id, id);
-  }
+          refreshToken.revokedAt = data.revokedAt;
+          return refreshToken;
+        },
+      ),
+    },
+  };
 }
 
 describe('Todo App flow (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    process.env.JWT_ACCESS_SECRET = 'test-access-secret';
+    process.env.JWT_ACCESS_TTL = '15m';
+    process.env.JWT_REFRESH_TTL = '7d';
+    process.env.REFRESH_COOKIE_NAME = 'refresh_token';
+    process.env.REFRESH_COOKIE_SECURE = 'false';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      controllers: [TestAuthController, TestListsController, TestTasksController],
-      providers: [
-        TestAuthService,
-        TestListsService,
-        TestTasksService,
-        TestJwtAuthGuard,
-      ],
-    }).compile();
+      imports: [AppModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue(createPrismaMock())
+      .overrideProvider(TasksGateway)
+      .useValue({
+        emitTaskCreated: jest.fn(),
+        emitTaskUpdated: jest.fn(),
+        emitTaskDeleted: jest.fn(),
+        emitTaskCompleted: jest.fn(),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
-    authServiceRef = moduleFixture.get(TestAuthService);
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -351,21 +323,34 @@ describe('Todo App flow (e2e)', () => {
         forbidNonWhitelisted: true,
       }),
     );
+    app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
   });
 
-  it('covers login, list creation, task creation and task deletion', async () => {
-    const loginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
+  it('covers registration, token refresh, list creation, task creation and task deletion', async () => {
+    const httpClient = request.agent(app.getHttpServer());
+
+    const registerResponse = await httpClient
+      .post('/auth/register')
       .send({
-        email: 'demo@libheros.local',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@libheros.local',
+        emailConfirmation: 'jane@libheros.local',
         password: 'Password123',
+        passwordConfirmation: 'Password123',
       })
-      .expect(200);
+      .expect(201);
 
-    const accessToken = loginResponse.body.accessToken as string;
+    expect(registerResponse.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining('refresh_token=')]),
+    );
 
-    const listResponse = await request(app.getHttpServer())
+    const refreshResponse = await httpClient.post('/auth/refresh').expect(200);
+    const refreshBody = refreshResponse.body as { accessToken: string };
+    const accessToken = refreshBody.accessToken;
+
+    const listResponse = await httpClient
       .post('/lists')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
@@ -373,9 +358,10 @@ describe('Todo App flow (e2e)', () => {
       })
       .expect(201);
 
-    const createdListId = listResponse.body.id as string;
+    const listBody = listResponse.body as { id: string };
+    const createdListId = listBody.id;
 
-    const taskResponse = await request(app.getHttpServer())
+    const taskResponse = await httpClient
       .post('/tasks')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({
@@ -386,14 +372,15 @@ describe('Todo App flow (e2e)', () => {
       })
       .expect(201);
 
-    const createdTaskId = taskResponse.body.id as string;
+    const taskBody = taskResponse.body as { id: string };
+    const createdTaskId = taskBody.id;
 
-    await request(app.getHttpServer())
+    await httpClient
       .delete(`/tasks/${createdTaskId}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
-    const tasksAfterDeletion = await request(app.getHttpServer())
+    const tasksAfterDeletion = await httpClient
       .get('/tasks')
       .query({
         listId: createdListId,

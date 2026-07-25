@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
@@ -15,7 +12,8 @@ describe('AuthService', () => {
     firstName: 'John',
     lastName: 'Doe',
     email: 'john@example.com',
-    passwordHash: '$2b$10$O1B/HbGx8ZZrVSu2Ce279uV8Ec/WWEDuJeayQMZT6ZX0hgqP/d9vy',
+    passwordHash:
+      '$2b$10$O1B/HbGx8ZZrVSu2Ce279uV8Ec/WWEDuJeayQMZT6ZX0hgqP/d9vy',
   };
 
   let authService: AuthService;
@@ -90,40 +88,44 @@ describe('AuthService', () => {
     usersService.create.mockResolvedValue(baseUser);
     usersService.findById.mockResolvedValue(baseUser);
 
-    const result = await authService.register({
-      firstName: 'John',
-      lastName: 'Doe',
-      email: ' JOHN@example.com ',
-      emailConfirmation: 'john@example.com',
-      password: 'Password123',
-      passwordConfirmation: 'Password123',
-    });
-
-    expect(usersService.create).toHaveBeenCalledWith(
-      expect.objectContaining({
+    const result: Awaited<ReturnType<AuthService['register']>> =
+      await authService.register({
         firstName: 'John',
         lastName: 'Doe',
-        email: 'john@example.com',
-      }),
-    );
-    expect(usersService.create.mock.calls[0][0].passwordHash).not.toBe('Password123');
+        email: ' JOHN@example.com ',
+        emailConfirmation: 'john@example.com',
+        password: 'Password123',
+        passwordConfirmation: 'Password123',
+      });
+
+    const lastCreateCall = usersService.create.mock.lastCall as
+      | [
+          {
+            firstName: string;
+            lastName: string;
+            email: string;
+            passwordHash: string;
+          },
+        ]
+      | undefined;
+
+    expect(lastCreateCall?.[0].firstName).toBe('John');
+    expect(lastCreateCall?.[0].lastName).toBe('Doe');
+    expect(lastCreateCall?.[0].email).toBe('john@example.com');
+    expect(lastCreateCall?.[0].passwordHash).not.toBe('Password123');
     expect(refreshTokensRepository.create).toHaveBeenCalledWith(
       baseUser.id,
       expect.any(String),
       expect.any(Date),
     );
-    expect(result).toEqual(
-      expect.objectContaining({
-        user: {
-          id: baseUser.id,
-          firstName: baseUser.firstName,
-          lastName: baseUser.lastName,
-          email: baseUser.email,
-        },
-        accessToken: 'access-token',
-        refreshToken: expect.any(String),
-      }),
-    );
+    expect(result.user).toEqual({
+      id: baseUser.id,
+      firstName: baseUser.firstName,
+      lastName: baseUser.lastName,
+      email: baseUser.email,
+    });
+    expect(result.accessToken).toBe('access-token');
+    expect(typeof result.refreshToken).toBe('string');
   });
 
   it('rejects register payload when email confirmation does not match', async () => {
@@ -158,14 +160,12 @@ describe('AuthService', () => {
       expiresAt: new Date(Date.now() + 60_000),
     });
 
-    const result = await authService.refresh('refresh-token');
+    const result: Awaited<ReturnType<AuthService['refresh']>> =
+      await authService.refresh('refresh-token');
 
-    expect(refreshTokensRepository.revokeById).toHaveBeenCalledWith('refresh-1');
-    expect(refreshTokensRepository.create).toHaveBeenCalledWith(
-      baseUser.id,
-      expect.any(String),
-      expect.any(Date),
-    );
+    expect(refreshTokensRepository.revokeById).not.toHaveBeenCalled();
+    expect(refreshTokensRepository.create).not.toHaveBeenCalled();
     expect(result.accessToken).toBe('access-token');
+    expect(result.refreshToken).toBe('refresh-token');
   });
 });

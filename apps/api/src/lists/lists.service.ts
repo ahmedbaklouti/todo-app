@@ -31,7 +31,10 @@ export class ListsService {
   }
 
   async remove(userId: string, id: string) {
-    const existingList = await this.listsRepository.findByIdAndUserId(id, userId);
+    const existingList = await this.listsRepository.findByIdAndUserId(
+      id,
+      userId,
+    );
 
     if (!existingList) {
       throw new NotFoundException('List not found');

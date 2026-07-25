@@ -45,13 +45,18 @@ export class AuthService {
   }
 
   async login(payload: LoginDto) {
-    const user = await this.usersService.findByEmail(payload.email.toLowerCase().trim());
+    const user = await this.usersService.findByEmail(
+      payload.email.toLowerCase().trim(),
+    );
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const passwordMatches = await bcrypt.compare(payload.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(
+      payload.password,
+      user.passwordHash,
+    );
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
@@ -60,7 +65,7 @@ export class AuthService {
     return this.createSession(user.id);
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken?: string) {
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token is missing');
     }
@@ -73,9 +78,7 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token is invalid or expired');
     }
 
-    await this.refreshTokensRepository.revokeById(storedToken.id);
-
-    return this.createSession(storedToken.userId);
+    return this.createAccessSession(storedToken.userId, refreshToken);
   }
 
   async logout(refreshToken?: string) {
@@ -105,15 +108,18 @@ export class AuthService {
   }
 
   getRefreshCookieName() {
-    return this.configService.get<string>('REFRESH_COOKIE_NAME') ?? 'refresh_token';
+    return (
+      this.configService.get<string>('REFRESH_COOKIE_NAME') ?? 'refresh_token'
+    );
   }
 
   getRefreshCookieOptions() {
     return {
       httpOnly: true,
-      secure: this.configService.get<string>('REFRESH_COOKIE_SECURE') === 'true',
+      secure:
+        this.configService.get<string>('REFRESH_COOKIE_SECURE') === 'true',
       sameSite: 'lax' as const,
-      path: '/auth',
+      path: '/',
       expires: new Date(Date.now() + this.getRefreshTokenTtlMs()),
     };
   }
@@ -121,13 +127,30 @@ export class AuthService {
   getRefreshCookieClearOptions() {
     return {
       httpOnly: true,
-      secure: this.configService.get<string>('REFRESH_COOKIE_SECURE') === 'true',
+      secure:
+        this.configService.get<string>('REFRESH_COOKIE_SECURE') === 'true',
       sameSite: 'lax' as const,
-      path: '/auth',
+      path: '/',
     };
   }
 
   private async createSession(userId: string) {
+    const refreshToken = this.generateRefreshToken();
+    const refreshTokenHash = this.hashToken(refreshToken);
+    const refreshTokenExpiresAt = new Date(
+      Date.now() + this.getRefreshTokenTtlMs(),
+    );
+
+    await this.refreshTokensRepository.create(
+      userId,
+      refreshTokenHash,
+      refreshTokenExpiresAt,
+    );
+
+    return this.createAccessSession(userId, refreshToken);
+  }
+
+  private async createAccessSession(userId: string, refreshToken: string) {
     const user = await this.usersService.findById(userId);
 
     if (!user) {
@@ -138,15 +161,6 @@ export class AuthService {
       sub: user.id,
       email: user.email,
     });
-    const refreshToken = this.generateRefreshToken();
-    const refreshTokenHash = this.hashToken(refreshToken);
-    const refreshTokenExpiresAt = new Date(Date.now() + this.getRefreshTokenTtlMs());
-
-    await this.refreshTokensRepository.create(
-      user.id,
-      refreshTokenHash,
-      refreshTokenExpiresAt,
-    );
 
     return {
       user: this.toAuthUser(user),
@@ -208,12 +222,14 @@ export class AuthService {
   }
 
   private getRefreshTokenTtlMs() {
-    const refreshTokenTtl = this.configService.get<string>('JWT_REFRESH_TTL') ?? '7d';
+    const refreshTokenTtl =
+      this.configService.get<string>('JWT_REFRESH_TTL') ?? '7d';
     return this.parseDurationToMs(refreshTokenTtl);
   }
 
   private getAccessTokenTtlSeconds() {
-    const accessTokenTtl = this.configService.get<string>('JWT_ACCESS_TTL') ?? '15m';
+    const accessTokenTtl =
+      this.configService.get<string>('JWT_ACCESS_TTL') ?? '15m';
     return Math.floor(this.parseDurationToMs(accessTokenTtl) / 1000);
   }
 

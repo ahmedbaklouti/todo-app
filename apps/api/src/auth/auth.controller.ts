@@ -19,6 +19,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  private getRefreshTokenFromRequest(request: Request) {
+    const cookies = request.cookies as
+      Record<string, string | undefined> | undefined;
+    return cookies?.[this.authService.getRefreshCookieName()];
+  }
+
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -64,14 +70,16 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies?.[this.authService.getRefreshCookieName()];
+    const refreshToken = this.getRefreshTokenFromRequest(request);
     const session = await this.authService.refresh(refreshToken);
 
-    response.cookie(
-      this.authService.getRefreshCookieName(),
-      session.refreshToken,
-      this.authService.getRefreshCookieOptions(),
-    );
+    if (session.refreshToken !== refreshToken) {
+      response.cookie(
+        this.authService.getRefreshCookieName(),
+        session.refreshToken,
+        this.authService.getRefreshCookieOptions(),
+      );
+    }
 
     return {
       user: session.user,
@@ -85,7 +93,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies?.[this.authService.getRefreshCookieName()];
+    const refreshToken = this.getRefreshTokenFromRequest(request);
     const result = await this.authService.logout(refreshToken);
 
     response.clearCookie(

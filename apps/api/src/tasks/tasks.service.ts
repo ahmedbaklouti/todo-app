@@ -25,7 +25,10 @@ export class TasksService {
   }
 
   async create(userId: string, dto: CreateTaskDto) {
-    const list = await this.listsRepository.findByIdAndUserId(dto.listId, userId);
+    const list = await this.listsRepository.findByIdAndUserId(
+      dto.listId,
+      userId,
+    );
 
     if (!list) {
       throw new NotFoundException('List not found');
@@ -43,7 +46,10 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
-    const updatedTask = await this.tasksRepository.updateStatus(id, dto.completed);
+    const updatedTask = await this.tasksRepository.updateStatus(
+      id,
+      dto.completed,
+    );
     this.tasksGateway.emitTaskCompleted(updatedTask);
     return updatedTask;
   }

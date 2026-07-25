@@ -24,6 +24,10 @@ type TaskDeletedPayload = {
   listId: string;
 };
 
+type AuthenticatedSocketData = {
+  userId?: string;
+};
+
 @WebSocketGateway({
   cors: {
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
@@ -42,21 +46,8 @@ export class TasksGateway
   server!: Server;
 
   afterInit(server: Server) {
-    server.use(async (client, next) => {
-      try {
-        const token = this.extractToken(client);
-
-        if (!token) {
-          return next(new Error('Authentication token is missing'));
-        }
-
-        const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
-        client.data.userId = payload.sub;
-
-        return next();
-      } catch {
-        return next(new Error('Authentication failed'));
-      }
+    server.use((client, next) => {
+      void this.authenticateClient(client, next);
     });
   }
 
@@ -73,16 +64,17 @@ export class TasksGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { listId: string },
   ) {
+    const socketData = client.data as AuthenticatedSocketData;
     const list = await this.listsRepository.findByIdAndUserId(
       payload.listId,
-      String(client.data.userId),
+      String(socketData.userId),
     );
 
     if (!list) {
       throw new WsException('List not found');
     }
 
-    client.join(`list:${payload.listId}`);
+    void client.join(`list:${payload.listId}`);
     return { joined: payload.listId };
   }
 
@@ -91,7 +83,7 @@ export class TasksGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { listId: string },
   ) {
-    client.leave(`list:${payload.listId}`);
+    void client.leave(`list:${payload.listId}`);
     return { left: payload.listId };
   }
 
@@ -111,6 +103,28 @@ export class TasksGateway
     this.server.to(`list:${task.listId}`).emit('task:completed', task);
   }
 
+  private async authenticateClient(
+    client: Socket,
+    next: (error?: Error) => void,
+  ) {
+    try {
+      const token = this.extractToken(client);
+
+      if (!token) {
+        next(new Error('Authentication token is missing'));
+        return;
+      }
+
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
+      const socketData = client.data as AuthenticatedSocketData;
+      socketData.userId = payload.sub;
+
+      next();
+    } catch {
+      next(new Error('Authentication failed'));
+    }
+  }
+
   private extractToken(client: Socket) {
     const authToken =
       typeof client.handshake.auth?.token === 'string'
@@ -123,7 +137,10 @@ export class TasksGateway
 
     const authorizationHeader = client.handshake.headers.authorization;
 
-    if (typeof authorizationHeader === 'string' && authorizationHeader.startsWith('Bearer ')) {
+    if (
+      typeof authorizationHeader === 'string' &&
+      authorizationHeader.startsWith('Bearer ')
+    ) {
       return authorizationHeader.slice(7);
     }
 

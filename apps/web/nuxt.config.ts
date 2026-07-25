@@ -6,6 +6,10 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: [],
   runtimeConfig: {
+    apiInternalUrl:
+      process.env.NUXT_API_INTERNAL_URL ??
+      process.env.NUXT_PUBLIC_API_URL ??
+      'http://localhost:3001',
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL ?? 'http://localhost:3001',
     },

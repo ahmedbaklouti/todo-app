@@ -61,7 +61,9 @@ export class TasksRepository {
         ...(dto.longDescription !== undefined
           ? { longDescription: dto.longDescription || null }
           : {}),
-        ...(dto.dueDate !== undefined ? { dueDate: new Date(dto.dueDate) } : {}),
+        ...(dto.dueDate !== undefined
+          ? { dueDate: new Date(dto.dueDate) }
+          : {}),
       },
     });
   }

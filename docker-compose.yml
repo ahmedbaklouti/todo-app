@@ -57,6 +57,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       NUXT_PUBLIC_API_URL: ${API_URL}
+      NUXT_API_INTERNAL_URL: ${API_INTERNAL_URL}
     ports:
       - "${FRONTEND_PORT}:3000"
 
