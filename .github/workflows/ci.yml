@@ -41,10 +41,10 @@ jobs:
         run: pnpm typecheck
 
       - name: Run API unit tests
-        run: pnpm --filter @todo-app/api test -- --runInBand
+        run: pnpm --filter @todo-app/api exec jest --runInBand
 
       - name: Run API e2e tests
-        run: pnpm --filter @todo-app/api test:e2e -- --runInBand
+        run: pnpm --filter @todo-app/api exec jest --config ./test/jest-e2e.json --runInBand
 
       - name: Build API
         run: pnpm --filter @todo-app/api build
