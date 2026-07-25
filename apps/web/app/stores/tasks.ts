@@ -7,6 +7,12 @@ type CreateTaskPayload = {
   dueDate: string;
 };
 
+type UpdateTaskPayload = {
+  shortDescription?: string;
+  longDescription?: string;
+  dueDate?: string;
+};
+
 export const useTasksStore = defineStore('tasks', {
   state: () => ({
     items: [] as TaskItem[],
@@ -91,6 +97,15 @@ export const useTasksStore = defineStore('tasks', {
       });
 
       this.upsertTask(updatedTask);
+    },
+    async updateTask(id: string, payload: UpdateTaskPayload) {
+      const updatedTask = await useApiFetch<TaskItem>(`/tasks/${id}`, {
+        method: 'PATCH',
+        body: payload,
+      });
+
+      this.upsertTask(updatedTask);
+      return updatedTask;
     },
     async deleteTask(id: string) {
       await useApiFetch(`/tasks/${id}`, {

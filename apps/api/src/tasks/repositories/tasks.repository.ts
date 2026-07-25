@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateTaskDto } from '../dto/create-task.dto';
+import { UpdateTaskDto } from '../dto/update-task.dto';
 
 @Injectable()
 export class TasksRepository {
@@ -46,6 +47,21 @@ export class TasksRepository {
       data: {
         completed,
         completedAt: completed ? new Date() : null,
+      },
+    });
+  }
+
+  update(id: string, dto: UpdateTaskDto) {
+    return this.prisma.task.update({
+      where: { id },
+      data: {
+        ...(dto.shortDescription !== undefined
+          ? { shortDescription: dto.shortDescription }
+          : {}),
+        ...(dto.longDescription !== undefined
+          ? { longDescription: dto.longDescription || null }
+          : {}),
+        ...(dto.dueDate !== undefined ? { dueDate: new Date(dto.dueDate) } : {}),
       },
     });
   }

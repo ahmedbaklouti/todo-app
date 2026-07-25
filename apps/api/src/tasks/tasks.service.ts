@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { ListsRepository } from '../lists/repositories/lists.repository';
 import { TasksRepository } from './repositories/tasks.repository';
@@ -44,6 +45,18 @@ export class TasksService {
 
     const updatedTask = await this.tasksRepository.updateStatus(id, dto.completed);
     this.tasksGateway.emitTaskCompleted(updatedTask);
+    return updatedTask;
+  }
+
+  async update(userId: string, id: string, dto: UpdateTaskDto) {
+    const task = await this.tasksRepository.findByIdAndUserId(id, userId);
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    const updatedTask = await this.tasksRepository.update(id, dto);
+    this.tasksGateway.emitTaskUpdated(updatedTask);
     return updatedTask;
   }
 
