@@ -25,6 +25,12 @@ export type TaskItem = {
   longDescription: string | null;
   dueDate: string;
   completed: boolean;
+  completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TaskDeletedEvent = {
+  id: string;
+  listId: string;
 };

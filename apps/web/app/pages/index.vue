@@ -1,20 +1,100 @@
 <script setup lang="ts">
+import type { TaskDeletedEvent, TaskItem } from '@todo-app/shared-types';
+
 const listsStore = useListsStore();
 const tasksStore = useTasksStore();
 const authStore = useAuthStore();
+const { $socket } = useNuxtApp();
 
 async function logout() {
   await authStore.logout();
   await navigateTo('/login');
 }
 
+function joinListRoom(listId: string | null) {
+  if (!listId || !$socket.connected) {
+    return;
+  }
+
+  $socket.emit('list:join', { listId });
+}
+
+function leaveListRoom(listId: string | null) {
+  if (!listId || !$socket.connected) {
+    return;
+  }
+
+  $socket.emit('list:leave', { listId });
+}
+
+function syncSocketConnection(accessToken: string | null) {
+  if (!accessToken) {
+    if ($socket.connected) {
+      $socket.disconnect();
+    }
+
+    return;
+  }
+
+  $socket.auth = { token: accessToken };
+
+  if ($socket.connected) {
+    $socket.disconnect();
+  }
+
+  $socket.connect();
+}
+
+function handleTaskCreated(task: TaskItem) {
+  tasksStore.upsertTask(task);
+}
+
+function handleTaskUpdated(task: TaskItem) {
+  tasksStore.upsertTask(task);
+}
+
+function handleTaskCompleted(task: TaskItem) {
+  tasksStore.upsertTask(task);
+}
+
+function handleTaskDeleted(event: TaskDeletedEvent) {
+  tasksStore.applyTaskDeleted(event);
+}
+
 onMounted(async () => {
+  $socket.on('connect', () => {
+    joinListRoom(listsStore.selectedListId);
+  });
+  $socket.on('task:created', handleTaskCreated);
+  $socket.on('task:updated', handleTaskUpdated);
+  $socket.on('task:completed', handleTaskCompleted);
+  $socket.on('task:deleted', handleTaskDeleted);
+
+  syncSocketConnection(authStore.accessToken);
   await listsStore.fetchLists();
 });
 
+onBeforeUnmount(() => {
+  leaveListRoom(listsStore.selectedListId);
+  $socket.off('task:created', handleTaskCreated);
+  $socket.off('task:updated', handleTaskUpdated);
+  $socket.off('task:completed', handleTaskCompleted);
+  $socket.off('task:deleted', handleTaskDeleted);
+  $socket.off('connect');
+});
+
+watch(
+  () => authStore.accessToken,
+  (accessToken) => {
+    syncSocketConnection(accessToken);
+  },
+);
+
 watch(
   () => listsStore.selectedListId,
-  async (listId) => {
+  async (listId, previousListId) => {
+    leaveListRoom(previousListId ?? null);
+    joinListRoom(listId);
     await tasksStore.fetchTasks(listId);
   },
   {

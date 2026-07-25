@@ -3,12 +3,14 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { ListsRepository } from '../lists/repositories/lists.repository';
 import { TasksRepository } from './repositories/tasks.repository';
+import { TasksGateway } from './tasks.gateway';
 
 @Injectable()
 export class TasksService {
   constructor(
     private readonly tasksRepository: TasksRepository,
     private readonly listsRepository: ListsRepository,
+    private readonly tasksGateway: TasksGateway,
   ) {}
 
   async findAll(userId: string, listId: string) {
@@ -28,7 +30,9 @@ export class TasksService {
       throw new NotFoundException('List not found');
     }
 
-    return this.tasksRepository.create(dto);
+    const task = await this.tasksRepository.create(dto);
+    this.tasksGateway.emitTaskCreated(task);
+    return task;
   }
 
   async updateStatus(userId: string, id: string, dto: UpdateTaskStatusDto) {
@@ -38,7 +42,9 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
-    return this.tasksRepository.updateStatus(id, dto.completed);
+    const updatedTask = await this.tasksRepository.updateStatus(id, dto.completed);
+    this.tasksGateway.emitTaskCompleted(updatedTask);
+    return updatedTask;
   }
 
   async remove(userId: string, id: string) {
@@ -48,6 +54,11 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
-    return this.tasksRepository.delete(id);
+    const deletedTask = await this.tasksRepository.delete(id);
+    this.tasksGateway.emitTaskDeleted({
+      id: deletedTask.id,
+      listId: deletedTask.listId,
+    });
+    return deletedTask;
   }
 }

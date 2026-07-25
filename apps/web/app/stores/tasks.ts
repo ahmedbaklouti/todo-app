@@ -1,4 +1,4 @@
-import type { TaskItem } from '@todo-app/shared-types';
+import type { TaskDeletedEvent, TaskItem } from '@todo-app/shared-types';
 
 type CreateTaskPayload = {
   listId: string;
@@ -23,6 +23,27 @@ export const useTasksStore = defineStore('tasks', {
     },
     selectTask(taskId: string | null) {
       this.selectedTaskId = taskId;
+    },
+    upsertTask(taskItem: TaskItem) {
+      const existingIndex = this.items.findIndex((task) => task.id === taskItem.id);
+
+      if (existingIndex === -1) {
+        this.items.push(taskItem);
+      } else {
+        this.items[existingIndex] = taskItem;
+      }
+
+      this.items = [...this.items];
+    },
+    removeTaskFromState(taskId: string) {
+      this.items = this.items.filter((task) => task.id !== taskId);
+
+      if (this.selectedTaskId === taskId) {
+        this.selectedTaskId = null;
+      }
+    },
+    applyTaskDeleted(event: TaskDeletedEvent) {
+      this.removeTaskFromState(event.id);
     },
     async fetchTasks(listId: string | null) {
       if (!listId) {
@@ -57,7 +78,7 @@ export const useTasksStore = defineStore('tasks', {
         body: payload,
       });
 
-      this.items.push(item);
+      this.upsertTask(item);
       this.selectedTaskId = item.id;
       return item;
     },
@@ -69,18 +90,14 @@ export const useTasksStore = defineStore('tasks', {
         },
       });
 
-      this.items = this.items.map((task) => (task.id === id ? updatedTask : task));
+      this.upsertTask(updatedTask);
     },
     async deleteTask(id: string) {
       await useApiFetch(`/tasks/${id}`, {
         method: 'DELETE',
       });
 
-      this.items = this.items.filter((task) => task.id !== id);
-
-      if (this.selectedTaskId === id) {
-        this.selectedTaskId = null;
-      }
+      this.removeTaskFromState(id);
     },
   },
 });
