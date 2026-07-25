@@ -12,6 +12,17 @@ L'objectif est de livrer une application type Wunderlist / Google Tasks avec :
 - synchronisation temps réel via WebSocket,
 - architecture claire, testable et facilement déployable.
 
+## En bref
+
+Le rendu couvre les points centraux attendus par le sujet :
+
+- monorepo `pnpm` avec `apps/api`, `apps/web` et types partages,
+- back `NestJS` modulaire avec DTOs, filtres, Swagger et isolation stricte par `userId`,
+- front `Nuxt` + `Pinia` + `Tailwind` avec routes protegees,
+- authentification JWT avec access token court et refresh token `httpOnly`,
+- synchronisation temps reel via `Socket.IO` avec rooms par liste,
+- Docker, `docker compose`, tests API et workflow GitHub Actions.
+
 ## Stack technique
 
 ### Front-end
