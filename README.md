@@ -1,5 +1,7 @@
 # Todo App
 
+[![CI](https://github.com/ahmedbaklouti/todo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedbaklouti/todo-app/actions/workflows/ci.yml)
+
 Application de gestion de tâches réalisée dans le cadre du test technique **Lead Developer** pour **Libheros**.
 
 L'objectif est de livrer une application type Wunderlist / Google Tasks avec :
@@ -41,12 +43,18 @@ L'objectif est de livrer une application type Wunderlist / Google Tasks avec :
 Le projet doit pouvoir se lancer en **3 commandes maximum** :
 
 ```bash
-git clone https://github.com/<votre-compte>/todo-app.git
+git clone https://github.com/ahmedbaklouti/todo-app.git
 cp .env.example .env
 docker compose up --build
 ```
 
-## Architecture cible
+Sous Windows PowerShell, la deuxieme commande peut etre remplacee par :
+
+```powershell
+Copy-Item .env.example .env
+```
+
+## Architecture
 
 Le projet est pensé comme un **monorepo pnpm** afin de centraliser les conventions, les scripts, le typage partagé et la qualité de code.
 
@@ -63,13 +71,14 @@ todo-app/
 │   │   │   └── main.ts
 │   │   ├── test/
 │   │   └── Dockerfile
-│   └── web/                 # Nuxt 3
-│       ├── components/
-│       ├── pages/
-│       ├── middleware/
-│       ├── stores/
-│       ├── composables/
-│       ├── plugins/
+│   └── web/                 # Nuxt 4
+│       ├── app/
+│       │   ├── components/
+│       │   ├── pages/
+│       │   ├── middleware/
+│       │   ├── stores/
+│       │   ├── composables/
+│       │   └── plugins/
 │       └── Dockerfile
 ├── packages/
 │   ├── config/              # config ESLint / TS / shared tooling
@@ -101,7 +110,7 @@ Cette organisation permet de conserver un code lisible, testable et évolutif.
 
 ## Organisation front-end
 
-Le front-end repose sur `Nuxt 3` avec la Composition API et des composants UI réutilisables.
+Le front-end repose sur `Nuxt` avec la Composition API et des composants UI reutilisables.
 
 Exemples de composants attendus :
 
@@ -119,7 +128,7 @@ L'état global est géré avec `Pinia` via des stores dédiés :
 
 Les routes protégées passent par un middleware Nuxt afin d'empêcher l'accès aux pages authentifiées sans session valide.
 
-## Pourquoi Nuxt plutôt qu'une SPA Vue
+## Pourquoi Nuxt plutot qu'une SPA Vue
 
 Le choix de `Nuxt` est volontaire, même sans besoin SSR fort au départ :
 
@@ -197,6 +206,19 @@ Le client s'abonne aux événements de la room active et met à jour `Pinia` dir
 - moins d'appels réseau inutiles,
 - une cohérence immédiate entre plusieurs onglets ou clients connectés à la même liste.
 
+## Fonctionnalites actuellement implementees
+
+- authentification `register / login / refresh / logout / me`,
+- access token court et refresh token `httpOnly`,
+- isolation stricte des donnees par `userId`,
+- CRUD listes,
+- CRUD taches,
+- changement de statut des taches,
+- edition d'une tache depuis le panneau de detail,
+- synchronisation temps reel des evenements taches via WebSocket,
+- middleware Nuxt de protection des routes,
+- stores Pinia synchronises avec l'API et le socket.
+
 ## Documentation API
 
 La documentation HTTP est générée automatiquement avec `Swagger`.
@@ -219,8 +241,8 @@ http://localhost:3001/api
 ### Commandes attendues
 
 ```bash
-pnpm test
-pnpm test:e2e
+pnpm --filter @todo-app/api test -- --runInBand
+pnpm --filter @todo-app/api test:e2e -- --runInBand
 ```
 
 ## Docker
@@ -232,17 +254,24 @@ Le dépôt doit fournir :
 - un `docker-compose.yml` lançant toute la stack,
 - un `.env.example` sans secret.
 
-L'objectif est un démarrage simple et reproductible pour le reviewer.
+L'objectif est un demarrage simple et reproductible pour le reviewer.
+
+Points importants de l'implementation Docker actuelle :
+
+- l'API est construite en multi-stage,
+- le conteneur API applique automatiquement `prisma db push` au demarrage,
+- le front est servi a partir du build Nuxt de production,
+- `docker compose` attend que PostgreSQL soit pret avant de lancer l'API.
 
 ## CI
 
-Un pipeline `GitHub Actions` est prévu en bonus avec exécution sur chaque `push` et `pull request` :
+Un pipeline `GitHub Actions` est configure sur chaque `push` et `pull request` :
 
 - installation des dépendances,
-- lint,
-- tests unitaires.
-
-Le README accueillera également un badge de statut CI une fois le workflow en place.
+- lint API,
+- tests unitaires API,
+- test e2e API,
+- build API et front.
 
 ## Ce que je ferais différemment avec plus de temps
 
@@ -261,15 +290,6 @@ Le README accueillera également un badge de statut CI une fois le workflow en p
 - robustesse des suppressions en cascade listes -> tâches,
 - tests composants front critiques,
 - scénarios e2e multi-utilisateurs.
-
-## Statut du dépôt
-
-Le dépôt est initialisé comme base de travail du test technique. Les fichiers `README.md` et `.gitignore` ont été posés en priorité pour cadrer :
-
-- l'architecture,
-- les exigences de sécurité,
-- le plan de livraison,
-- les conventions du monorepo.
 
 ## Auteur
 

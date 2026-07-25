@@ -17,13 +17,13 @@ COPY apps/api apps/api
 COPY packages packages
 
 WORKDIR /app/apps/api
-RUN nest build
+RUN pnpm exec prisma generate --schema prisma/schema.prisma && nest build
 
 FROM node:22-alpine AS runtime
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="/app/node_modules/.bin:$PNPM_HOME:$PATH"
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 
 RUN corepack enable
 WORKDIR /app/apps/api
@@ -32,4 +32,4 @@ COPY --from=base /app /app
 
 EXPOSE 3001
 
-CMD ["nest", "start", "--watch"]
+CMD ["sh", "-c", "pnpm exec prisma db push --schema prisma/schema.prisma && node dist/main"]

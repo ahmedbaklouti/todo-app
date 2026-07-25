@@ -23,7 +23,7 @@ FROM node:22-alpine AS runtime
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="/app/node_modules/.bin:$PNPM_HOME:$PATH"
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 
 RUN corepack enable
 WORKDIR /app/apps/web
@@ -32,4 +32,4 @@ COPY --from=base /app /app
 
 EXPOSE 3000
 
-CMD ["nuxt", "dev", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["node", ".output/server/index.mjs"]
