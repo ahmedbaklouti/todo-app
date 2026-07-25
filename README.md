@@ -279,6 +279,15 @@ pnpm --filter @todo-app/api test -- --runInBand
 pnpm --filter @todo-app/api test:e2e -- --runInBand
 ```
 
+Le test `e2e` demarre la vraie application NestJS sur une base PostgreSQL isolee par schema temporaire, puis verifie :
+
+- l'inscription,
+- le refresh de session,
+- la creation d'une liste,
+- la creation d'une tache,
+- la propagation WebSocket (`task:created`, `task:completed`, `task:deleted`),
+- la suppression effective de la tache.
+
 ## Docker
 
 Le dépôt doit fournir :
@@ -302,7 +311,9 @@ Points importants de l'implementation Docker actuelle :
 Un pipeline `GitHub Actions` est configure sur chaque `push` et `pull request` :
 
 - installation des dépendances,
-- lint API,
+- génération du client Prisma,
+- lint monorepo,
+- typecheck monorepo,
 - tests unitaires API,
 - test e2e API,
 - build API et front.
@@ -311,7 +322,7 @@ Un pipeline `GitHub Actions` est configure sur chaque `push` et `pull request` :
 
 - le workflow CI verifie le back et les builds, mais pas encore de tests composants front,
 - la persistance Prisma est initialisee via `prisma db push`, ce qui est pratique pour un test technique mais moins strict qu'un vrai historique de migrations versionnees,
-- le test e2e actuel est volontairement pragmatique pour garantir une execution stable dans la CI.
+- le test e2e couvre maintenant un flux reel avec PostgreSQL et Socket.IO, mais ne couvre pas encore des scenarios multi-utilisateurs ou multi-onglets plus pousses.
 
 ## Ce que je ferais différemment avec plus de temps
 

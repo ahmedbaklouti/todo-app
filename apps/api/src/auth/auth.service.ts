@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -26,20 +27,35 @@ export class AuthService {
 
   async register(payload: RegisterDto) {
     this.validateRegisterPayload(payload);
+    const normalizedEmail = payload.email.toLowerCase().trim();
 
-    const existingUser = await this.usersService.findByEmail(payload.email);
+    const existingUser = await this.usersService.findByEmail(normalizedEmail);
 
     if (existingUser) {
       throw new ConflictException('An account already exists for this email');
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
-    const user = await this.usersService.create({
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      email: payload.email.toLowerCase().trim(),
-      passwordHash,
-    });
+
+    let user;
+
+    try {
+      user = await this.usersService.create({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: normalizedEmail,
+        passwordHash,
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('An account already exists for this email');
+      }
+
+      throw error;
+    }
 
     return this.createSession(user.id);
   }

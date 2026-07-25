@@ -35,7 +35,7 @@ export class TasksRepository {
       data: {
         listId: dto.listId,
         shortDescription: dto.shortDescription,
-        longDescription: dto.longDescription ?? null,
+        longDescription: dto.longDescription ? dto.longDescription : null,
         dueDate: new Date(dto.dueDate),
       },
     });

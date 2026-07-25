@@ -1,318 +1,190 @@
+import { execFileSync } from 'child_process';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import { randomUUID } from 'crypto';
+import path from 'path';
 import request from 'supertest';
-import type { App } from 'supertest/types';
+import { io, Socket } from 'socket.io-client';
+import { URL } from 'url';
 import { AppModule } from '../src/app.module';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { TasksGateway } from '../src/tasks/tasks.gateway';
 
-type UserRecord = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  passwordHash: string;
-  createdAt: Date;
-  updatedAt: Date;
+type AuthSessionResponse = {
+  accessToken: string;
 };
 
-type TaskListRecord = {
+type CreatedEntityResponse = {
   id: string;
-  userId: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
 };
 
-type TaskRecord = {
+type TaskRealtimePayload = {
   id: string;
   listId: string;
   shortDescription: string;
-  longDescription: string | null;
-  dueDate: Date;
   completed: boolean;
-  completedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
 };
 
-type RefreshTokenRecord = {
+type TaskDeletedPayload = {
   id: string;
-  userId: string;
-  tokenHash: string;
-  expiresAt: Date;
-  createdAt: Date;
-  revokedAt: Date | null;
+  listId: string;
 };
 
-function createPrismaMock() {
-  const users: UserRecord[] = [];
-  const taskLists: TaskListRecord[] = [];
-  const tasks: TaskRecord[] = [];
-  const refreshTokens: RefreshTokenRecord[] = [];
+type JoinListPayload = {
+  listId: string;
+};
+
+type JoinListResponse = {
+  joined: string;
+};
+
+interface TestServerToClientEvents {
+  'task:created': (payload: TaskRealtimePayload) => void;
+  'task:completed': (payload: TaskRealtimePayload) => void;
+  'task:deleted': (payload: TaskDeletedPayload) => void;
+}
+
+interface TestClientToServerEvents {
+  'list:join': (
+    payload: JoinListPayload,
+    ack: (response: JoinListResponse) => void,
+  ) => void;
+}
+
+type TestSocket = Socket<TestServerToClientEvents, TestClientToServerEvents>;
+type ServerEventName = keyof TestServerToClientEvents;
+type ServerEventPayloadMap = {
+  'task:created': TaskRealtimePayload;
+  'task:completed': TaskRealtimePayload;
+  'task:deleted': TaskDeletedPayload;
+};
+
+function buildE2EDatabaseUrl() {
+  const baseUrl =
+    process.env.DATABASE_URL ??
+    'postgresql://todo_user:todo_password@127.0.0.1:5432/todo_app?schema=public';
+  const databaseUrl = new URL(baseUrl.replace('@postgres:', '@127.0.0.1:'));
+  const schema = `e2e_${randomUUID().replace(/-/g, '')}`;
+
+  if (databaseUrl.hostname === 'postgres') {
+    databaseUrl.hostname = '127.0.0.1';
+  }
+
+  databaseUrl.searchParams.set('schema', schema);
 
   return {
-    $connect: jest.fn(),
-    user: {
-      findUnique: jest.fn(
-        ({ where }: { where: { id?: string; email?: string } }) => {
-          if (where.id) {
-            return users.find((user) => user.id === where.id) ?? null;
-          }
-
-          if (where.email) {
-            return users.find((user) => user.email === where.email) ?? null;
-          }
-
-          return null;
-        },
-      ),
-      create: jest.fn(
-        ({
-          data,
-        }: {
-          data: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'>;
-        }) => {
-          const now = new Date();
-          const user: UserRecord = {
-            id: randomUUID(),
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            passwordHash: data.passwordHash,
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          users.push(user);
-          return user;
-        },
-      ),
-    },
-    taskList: {
-      findMany: jest.fn(({ where }: { where: { userId: string } }) =>
-        taskLists
-          .filter((list) => list.userId === where.userId)
-          .sort(
-            (left, right) =>
-              left.createdAt.getTime() - right.createdAt.getTime(),
-          ),
-      ),
-      findFirst: jest.fn(
-        ({ where }: { where: { id: string; userId: string } }) =>
-          taskLists.find(
-            (list) => list.id === where.id && list.userId === where.userId,
-          ) ?? null,
-      ),
-      create: jest.fn(
-        ({ data }: { data: { userId: string; name: string } }) => {
-          const now = new Date();
-          const taskList: TaskListRecord = {
-            id: randomUUID(),
-            userId: data.userId,
-            name: data.name,
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          taskLists.push(taskList);
-          return taskList;
-        },
-      ),
-      delete: jest.fn(({ where }: { where: { id: string } }) => {
-        const index = taskLists.findIndex((list) => list.id === where.id);
-        const [deletedList] = taskLists.splice(index, 1);
-
-        for (let taskIndex = tasks.length - 1; taskIndex >= 0; taskIndex -= 1) {
-          if (tasks[taskIndex]?.listId === where.id) {
-            tasks.splice(taskIndex, 1);
-          }
-        }
-
-        return deletedList;
-      }),
-    },
-    task: {
-      findMany: jest.fn(
-        ({ where }: { where: { listId: string; list: { userId: string } } }) =>
-          tasks
-            .filter((task) => {
-              const list = taskLists.find((item) => item.id === task.listId);
-              return (
-                task.listId === where.listId &&
-                list?.userId === where.list.userId
-              );
-            })
-            .sort(
-              (left, right) =>
-                left.createdAt.getTime() - right.createdAt.getTime(),
-            ),
-      ),
-      findFirst: jest.fn(
-        ({ where }: { where: { id: string; list: { userId: string } } }) =>
-          tasks.find((task) => {
-            const list = taskLists.find((item) => item.id === task.listId);
-            return task.id === where.id && list?.userId === where.list.userId;
-          }) ?? null,
-      ),
-      create: jest.fn(
-        ({
-          data,
-        }: {
-          data: {
-            listId: string;
-            shortDescription: string;
-            longDescription: string | null;
-            dueDate: Date;
-          };
-        }) => {
-          const now = new Date();
-          const task: TaskRecord = {
-            id: randomUUID(),
-            listId: data.listId,
-            shortDescription: data.shortDescription,
-            longDescription: data.longDescription,
-            dueDate: data.dueDate,
-            completed: false,
-            completedAt: null,
-            createdAt: now,
-            updatedAt: now,
-          };
-
-          tasks.push(task);
-          return task;
-        },
-      ),
-      update: jest.fn(
-        ({
-          where,
-          data,
-        }: {
-          where: { id: string };
-          data: Partial<
-            Pick<
-              TaskRecord,
-              | 'shortDescription'
-              | 'longDescription'
-              | 'dueDate'
-              | 'completed'
-              | 'completedAt'
-            >
-          >;
-        }) => {
-          const task = tasks.find((item) => item.id === where.id);
-
-          if (!task) {
-            return null;
-          }
-
-          Object.assign(task, data, { updatedAt: new Date() });
-          return task;
-        },
-      ),
-      delete: jest.fn(({ where }: { where: { id: string } }) => {
-        const index = tasks.findIndex((task) => task.id === where.id);
-        const [deletedTask] = tasks.splice(index, 1);
-        return deletedTask;
-      }),
-    },
-    refreshToken: {
-      findMany: jest.fn(({ where }: { where: { userId: string } }) =>
-        refreshTokens
-          .filter((token) => token.userId === where.userId)
-          .sort(
-            (left, right) =>
-              right.createdAt.getTime() - left.createdAt.getTime(),
-          ),
-      ),
-      findFirst: jest.fn(
-        ({
-          where,
-        }: {
-          where: {
-            tokenHash: string;
-            revokedAt: null;
-          };
-        }) =>
-          refreshTokens.find(
-            (token) =>
-              token.tokenHash === where.tokenHash &&
-              token.revokedAt === where.revokedAt,
-          ) ?? null,
-      ),
-      create: jest.fn(
-        ({
-          data,
-        }: {
-          data: {
-            userId: string;
-            tokenHash: string;
-            expiresAt: Date;
-          };
-        }) => {
-          const refreshToken: RefreshTokenRecord = {
-            id: randomUUID(),
-            userId: data.userId,
-            tokenHash: data.tokenHash,
-            expiresAt: data.expiresAt,
-            createdAt: new Date(),
-            revokedAt: null,
-          };
-
-          refreshTokens.push(refreshToken);
-          return refreshToken;
-        },
-      ),
-      update: jest.fn(
-        ({
-          where,
-          data,
-        }: {
-          where: { id: string };
-          data: { revokedAt: Date };
-        }) => {
-          const refreshToken = refreshTokens.find(
-            (item) => item.id === where.id,
-          );
-
-          if (!refreshToken) {
-            return null;
-          }
-
-          refreshToken.revokedAt = data.revokedAt;
-          return refreshToken;
-        },
-      ),
-    },
+    databaseUrl: databaseUrl.toString(),
+    schema,
   };
 }
 
+function runPrismaDbPush(databaseUrl: string) {
+  const prismaCliPath = path.join(
+    path.dirname(require.resolve('prisma/package.json')),
+    'build',
+    'index.js',
+  );
+
+  execFileSync(
+    process.execPath,
+    [prismaCliPath, 'db', 'push', '--skip-generate'],
+    {
+      cwd: path.resolve(__dirname, '..'),
+      env: {
+        ...process.env,
+        DATABASE_URL: databaseUrl,
+      },
+      stdio: 'inherit',
+    },
+  );
+}
+
+function waitForSocketConnect(socket: TestSocket) {
+  return new Promise<void>((resolve, reject) => {
+    if (socket.connected) {
+      resolve();
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      socket.off('connect', handleConnect);
+      socket.off('connect_error', handleConnectError);
+      reject(new Error('Timed out waiting for socket connection'));
+    }, 5000);
+
+    const handleConnect = () => {
+      clearTimeout(timeout);
+      socket.off('connect_error', handleConnectError);
+      resolve();
+    };
+
+    const handleConnectError = (error: Error) => {
+      clearTimeout(timeout);
+      socket.off('connect', handleConnect);
+      reject(error);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('connect_error', handleConnectError);
+  });
+}
+
+function onceSocketEvent(
+  socket: TestSocket,
+  eventName: 'task:created',
+): Promise<TaskRealtimePayload>;
+function onceSocketEvent(
+  socket: TestSocket,
+  eventName: 'task:completed',
+): Promise<TaskRealtimePayload>;
+function onceSocketEvent(
+  socket: TestSocket,
+  eventName: 'task:deleted',
+): Promise<TaskDeletedPayload>;
+function onceSocketEvent(socket: TestSocket, eventName: ServerEventName) {
+  return new Promise<ServerEventPayloadMap[ServerEventName]>(
+    (resolve, reject) => {
+      const handleSuccess = (
+        payload: ServerEventPayloadMap[ServerEventName],
+      ) => {
+        clearTimeout(timeout);
+        socket.off(eventName, handleSuccess);
+        resolve(payload);
+      };
+
+      const timeout = setTimeout(() => {
+        socket.off(eventName, handleSuccess);
+        reject(new Error(`Timed out waiting for socket event: ${eventName}`));
+      }, 5000);
+
+      socket.on(eventName, handleSuccess);
+    },
+  );
+}
+
 describe('Todo App flow (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let schema: string;
+  let activeSocket: TestSocket | null = null;
 
   beforeAll(async () => {
-    process.env.JWT_ACCESS_SECRET = 'test-access-secret';
-    process.env.JWT_ACCESS_TTL = '15m';
-    process.env.JWT_REFRESH_TTL = '7d';
-    process.env.REFRESH_COOKIE_NAME = 'refresh_token';
-    process.env.REFRESH_COOKIE_SECURE = 'false';
+    process.env.JWT_ACCESS_SECRET ??= 'test-access-secret';
+    process.env.JWT_ACCESS_TTL ??= '15m';
+    process.env.JWT_REFRESH_TTL ??= '7d';
+    process.env.REFRESH_COOKIE_NAME ??= 'refresh_token';
+    process.env.REFRESH_COOKIE_SECURE ??= 'false';
+
+    const testDatabase = buildE2EDatabaseUrl();
+    process.env.DATABASE_URL = testDatabase.databaseUrl;
+    schema = testDatabase.schema;
+
+    runPrismaDbPush(testDatabase.databaseUrl);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideProvider(PrismaService)
-      .useValue(createPrismaMock())
-      .overrideProvider(TasksGateway)
-      .useValue({
-        emitTaskCreated: jest.fn(),
-        emitTaskUpdated: jest.fn(),
-        emitTaskDeleted: jest.fn(),
-        emitTaskCompleted: jest.fn(),
-      })
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
@@ -324,11 +196,20 @@ describe('Todo App flow (e2e)', () => {
       }),
     );
     app.useGlobalFilters(new HttpExceptionFilter());
-    await app.init();
+    await app.listen(0, '127.0.0.1');
+
+    prisma = app.get(PrismaService);
+    await prisma.refreshToken.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.taskList.deleteMany();
+    await prisma.user.deleteMany();
   });
 
-  it('covers registration, token refresh, list creation, task creation and task deletion', async () => {
-    const httpClient = request.agent(app.getHttpServer());
+  it('covers registration, token refresh, list creation, task creation, websocket propagation and task deletion', async () => {
+    const httpServer = app.getHttpServer() as Parameters<
+      typeof request.agent
+    >[0];
+    const httpClient = request.agent(httpServer);
 
     const registerResponse = await httpClient
       .post('/auth/register')
@@ -347,7 +228,7 @@ describe('Todo App flow (e2e)', () => {
     );
 
     const refreshResponse = await httpClient.post('/auth/refresh').expect(200);
-    const refreshBody = refreshResponse.body as { accessToken: string };
+    const refreshBody = refreshResponse.body as AuthSessionResponse;
     const accessToken = refreshBody.accessToken;
 
     const listResponse = await httpClient
@@ -358,8 +239,29 @@ describe('Todo App flow (e2e)', () => {
       })
       .expect(201);
 
-    const listBody = listResponse.body as { id: string };
+    const listBody = listResponse.body as CreatedEntityResponse;
     const createdListId = listBody.id;
+
+    activeSocket = io(await app.getUrl(), {
+      auth: {
+        token: accessToken,
+      },
+      forceNew: true,
+      reconnection: false,
+      transports: ['websocket'],
+      withCredentials: true,
+    });
+
+    await waitForSocketConnect(activeSocket);
+
+    await expect(
+      activeSocket.emitWithAck('list:join', { listId: createdListId }),
+    ).resolves.toEqual<JoinListResponse>({ joined: createdListId });
+
+    const taskCreatedEventPromise = onceSocketEvent(
+      activeSocket,
+      'task:created',
+    );
 
     const taskResponse = await httpClient
       .post('/tasks')
@@ -372,13 +274,49 @@ describe('Todo App flow (e2e)', () => {
       })
       .expect(201);
 
-    const taskBody = taskResponse.body as { id: string };
+    const taskBody = taskResponse.body as CreatedEntityResponse;
     const createdTaskId = taskBody.id;
+
+    await expect(taskCreatedEventPromise).resolves.toMatchObject({
+      id: createdTaskId,
+      listId: createdListId,
+      shortDescription: 'Contacter le candidat',
+      completed: false,
+    });
+
+    const taskCompletedEventPromise = onceSocketEvent(
+      activeSocket,
+      'task:completed',
+    );
+
+    await httpClient
+      .patch(`/tasks/${createdTaskId}/complete`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        completed: true,
+      })
+      .expect(200);
+
+    await expect(taskCompletedEventPromise).resolves.toMatchObject({
+      id: createdTaskId,
+      listId: createdListId,
+      completed: true,
+    });
+
+    const taskDeletedEventPromise = onceSocketEvent(
+      activeSocket,
+      'task:deleted',
+    );
 
     await httpClient
       .delete(`/tasks/${createdTaskId}`)
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
+
+    await expect(taskDeletedEventPromise).resolves.toEqual({
+      id: createdTaskId,
+      listId: createdListId,
+    });
 
     const tasksAfterDeletion = await httpClient
       .get('/tasks')
@@ -392,6 +330,14 @@ describe('Todo App flow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    activeSocket?.close();
+
+    if (prisma) {
+      await prisma.$executeRawUnsafe(
+        `DROP SCHEMA IF EXISTS "${schema}" CASCADE`,
+      );
+    }
+
+    await app?.close();
   });
 });
