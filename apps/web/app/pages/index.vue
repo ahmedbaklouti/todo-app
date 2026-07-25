@@ -1,14 +1,35 @@
 <script setup lang="ts">
 import type { TaskDeletedEvent, TaskItem } from '@todo-app/shared-types';
+import AppSidebar from '../components/layout/AppSidebar.vue';
+import TaskBoard from '../components/tasks/TaskBoard.vue';
+import TaskDetailPanel from '../components/tasks/TaskDetailPanel.vue';
 
 const listsStore = useListsStore();
 const tasksStore = useTasksStore();
 const authStore = useAuthStore();
 const { $socket } = useNuxtApp();
+const sidebarCollapsed = ref(false);
+const mobileSidebarOpen = ref(false);
+
+const dashboardLayoutClass = computed(() => {
+  if (sidebarCollapsed.value) {
+    return tasksStore.selectedTaskId
+      ? 'xl:grid-cols-[88px_minmax(0,1fr)_320px]'
+      : 'xl:grid-cols-[88px_minmax(0,1fr)]';
+  }
+
+  return tasksStore.selectedTaskId
+    ? 'xl:grid-cols-[280px_minmax(0,1fr)_320px]'
+    : 'xl:grid-cols-[280px_minmax(0,1fr)]';
+});
 
 async function logout() {
   await authStore.logout();
   await navigateTo('/login');
+}
+
+function closeMobileSidebar() {
+  mobileSidebarOpen.value = false;
 }
 
 function joinListRoom(listId: string | null) {
@@ -107,14 +128,20 @@ watch(
   <main class="px-6 py-6">
     <header class="mb-6 rounded-3xl border border-zinc-200 bg-white px-6 py-5 shadow-sm">
       <p class="text-xs uppercase tracking-[0.25em] text-zinc-400">Todo App</p>
-      <div class="mt-3 flex items-center justify-between">
+      <div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 class="text-3xl font-semibold text-zinc-900">Espace de travail</h1>
           <p class="mt-1 text-sm text-zinc-500">
             Listes et taches chargees depuis l'API NestJS securisee par JWT.
           </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 xl:hidden"
+            @click="mobileSidebarOpen = true"
+          >
+            Mes listes
+          </button>
           <div class="rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
             {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
           </div>
@@ -128,10 +155,40 @@ watch(
       </div>
     </header>
 
-    <section class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
-      <AppSidebar />
+    <section class="grid gap-6" :class="dashboardLayoutClass">
+      <AppSidebar
+        class="hidden xl:flex"
+        :collapsed="sidebarCollapsed"
+        :show-toggle="true"
+        @toggle="sidebarCollapsed = !sidebarCollapsed"
+        @select="closeMobileSidebar"
+      />
       <TaskBoard />
-      <TaskDetailPanel />
+      <TaskDetailPanel v-if="tasksStore.selectedTaskId" />
     </section>
+
+    <Teleport to="body">
+      <div
+        v-if="mobileSidebarOpen"
+        class="fixed inset-0 z-40 bg-zinc-950/45 xl:hidden"
+        @click.self="closeMobileSidebar"
+      >
+        <div class="ml-auto h-full w-full max-w-sm p-4">
+          <div class="mb-3 flex items-center justify-end">
+            <button
+              class="rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:text-zinc-900"
+              @click="closeMobileSidebar"
+            >
+              Fermer
+            </button>
+          </div>
+          <AppSidebar
+            :collapsed="false"
+            :show-toggle="false"
+            @select="closeMobileSidebar"
+          />
+        </div>
+      </div>
+    </Teleport>
   </main>
 </template>
