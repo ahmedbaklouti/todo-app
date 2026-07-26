@@ -15,6 +15,9 @@ const selectedList = computed(
   () => listsStore.items.find((item) => item.id === listsStore.selectedListId) ?? null,
 );
 
+const activeTaskCount = computed(() => tasksStore.activeTasks.length);
+const completedTaskCount = computed(() => tasksStore.completedTasks.length);
+
 async function createTask() {
   if (!selectedList.value) {
     errorMessage.value = 'Selectionne une liste avant de creer une tache.';
@@ -68,12 +71,31 @@ watchEffect(() => {
 
 <template>
   <section class="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
-    <div class="mb-6 flex items-end justify-between">
-      <div>
+    <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Taches</p>
         <h2 class="text-2xl font-semibold text-zinc-900">
           {{ selectedList?.name ?? 'Liste active' }}
         </h2>
+        <p class="mt-1 text-sm text-zinc-500">
+          {{
+            selectedList
+              ? 'Retrouve les taches actives, les details et les actions de suivi de cette liste.'
+              : 'Selectionne une liste pour afficher ses taches et commencer a travailler.'
+          }}
+        </p>
+      </div>
+
+      <div
+        v-if="selectedList"
+        class="flex flex-wrap items-center gap-2"
+      >
+        <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+          {{ activeTaskCount }} en cours
+        </span>
+        <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+          {{ completedTaskCount }} terminees
+        </span>
       </div>
     </div>
 
@@ -83,6 +105,12 @@ watchEffect(() => {
 
     <div v-else class="space-y-6">
       <form class="grid gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4" @submit.prevent="createTask">
+        <div class="flex flex-col gap-1">
+          <h3 class="text-sm font-semibold text-zinc-900">Ajouter une nouvelle tache</h3>
+          <p class="text-sm text-zinc-500">
+            Renseigne l'essentiel pour suivre la tache et retrouver facilement son echeance.
+          </p>
+        </div>
         <input
           v-model="taskForm.shortDescription"
           type="text"
@@ -151,11 +179,25 @@ watchEffect(() => {
       </div>
 
       <details class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-        <summary class="cursor-pointer text-sm font-medium text-zinc-700">
-          Mes taches terminees ({{ tasksStore.completedTasks.length }})
+        <summary class="cursor-pointer list-none">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <span class="text-sm font-medium text-zinc-700">
+              Mes taches terminees ({{ completedTaskCount }})
+            </span>
+            <span class="text-xs text-zinc-500">
+              Reouvre une tache si elle doit revenir dans le flux actif.
+            </span>
+          </div>
         </summary>
 
         <div class="mt-4 space-y-2">
+          <div
+            v-if="completedTaskCount === 0"
+            class="rounded-2xl border border-dashed border-emerald-200 bg-white px-4 py-6 text-center text-sm text-zinc-500"
+          >
+            Aucune tache terminee pour le moment.
+          </div>
+
           <div
             v-for="task in tasksStore.completedTasks"
             :key="task.id"
