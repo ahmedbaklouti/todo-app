@@ -21,6 +21,11 @@ const registerForm = reactive({
 
 const isRegisterMode = computed(() => mode.value === 'register');
 
+function switchMode(nextMode: 'login' | 'register') {
+  mode.value = nextMode;
+  errorMessage.value = '';
+}
+
 async function submit() {
   pending.value = true;
   errorMessage.value = '';
@@ -62,7 +67,7 @@ async function submit() {
           type="button"
           class="rounded-xl px-4 py-2 transition"
           :class="!isRegisterMode ? 'bg-white font-medium text-zinc-900 shadow-sm' : 'text-zinc-500'"
-          @click="mode = 'login'"
+          @click="switchMode('login')"
         >
           Connexion
         </button>
@@ -70,7 +75,7 @@ async function submit() {
           type="button"
           class="rounded-xl px-4 py-2 transition"
           :class="isRegisterMode ? 'bg-white font-medium text-zinc-900 shadow-sm' : 'text-zinc-500'"
-          @click="mode = 'register'"
+          @click="switchMode('register')"
         >
           Inscription
         </button>

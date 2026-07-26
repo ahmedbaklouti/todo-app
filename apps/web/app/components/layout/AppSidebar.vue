@@ -20,6 +20,7 @@ const listIdPendingDeletion = ref<string | null>(null);
 
 async function createList() {
   if (!newListName.value.trim()) {
+    errorMessage.value = 'Le nom de la liste est obligatoire.';
     return;
   }
 
@@ -61,6 +62,12 @@ function selectList(id: string) {
   listsStore.selectList(id);
   emit('select');
 }
+
+watch(newListName, (value) => {
+  if (value.trim()) {
+    errorMessage.value = '';
+  }
+});
 </script>
 
 <template>

@@ -16,7 +16,18 @@ const selectedList = computed(
 );
 
 async function createTask() {
-  if (!selectedList.value || !taskForm.shortDescription.trim() || !taskForm.dueDate) {
+  if (!selectedList.value) {
+    errorMessage.value = 'Selectionne une liste avant de creer une tache.';
+    return;
+  }
+
+  if (!taskForm.shortDescription.trim()) {
+    errorMessage.value = 'La description courte est obligatoire.';
+    return;
+  }
+
+  if (!taskForm.dueDate) {
+    errorMessage.value = "La date d'echeance est obligatoire.";
     return;
   }
 
@@ -47,6 +58,15 @@ async function createTask() {
 async function toggleTask(taskId: string, completed: boolean) {
   await tasksStore.toggleTaskStatus(taskId, completed);
 }
+
+watch(
+  () => [taskForm.shortDescription, taskForm.dueDate],
+  ([shortDescription, dueDate]) => {
+    if (shortDescription.trim() && dueDate) {
+      errorMessage.value = '';
+    }
+  },
+);
 </script>
 
 <template>
