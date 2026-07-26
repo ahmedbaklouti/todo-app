@@ -59,14 +59,11 @@ async function toggleTask(taskId: string, completed: boolean) {
   await tasksStore.toggleTaskStatus(taskId, completed);
 }
 
-watch(
-  () => [taskForm.shortDescription, taskForm.dueDate],
-  ([shortDescription, dueDate]) => {
-    if (shortDescription.trim() && dueDate) {
-      errorMessage.value = '';
-    }
-  },
-);
+watchEffect(() => {
+  if (taskForm.shortDescription.trim() && taskForm.dueDate) {
+    errorMessage.value = '';
+  }
+});
 </script>
 
 <template>
@@ -120,26 +117,37 @@ watch(
       </div>
 
       <div v-else class="space-y-3">
-        <button
+        <div
           v-for="task in tasksStore.activeTasks"
           :key="task.id"
-          class="flex w-full items-start justify-between rounded-2xl border border-zinc-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
-          @click="tasksStore.selectTask(task.id)"
+          class="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 transition hover:border-blue-300 hover:bg-blue-50/30"
         >
-          <div>
-            <p class="text-sm font-medium text-zinc-900">{{ task.shortDescription }}</p>
-            <p class="mt-1 text-xs text-zinc-500">Echeance {{ task.dueDate.slice(0, 10) }}</p>
-          </div>
-          <span class="flex items-center gap-2 text-xs">
-            <span class="rounded-full bg-zinc-100 px-2 py-1 text-zinc-500">active</span>
+          <button
+            class="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 py-2 text-left transition hover:bg-white/80"
+            @click="tasksStore.selectTask(task.id)"
+          >
             <span
-              class="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700"
-              @click.stop="toggleTask(task.id, true)"
+              class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
             >
-              terminer
+              En cours
             </span>
-          </span>
-        </button>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-zinc-900">
+                {{ task.shortDescription }}
+              </span>
+              <span class="mt-1 inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600">
+                Echeance {{ task.dueDate.slice(0, 10) }}
+              </span>
+            </span>
+          </button>
+
+          <button
+            class="shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+            @click="toggleTask(task.id, true)"
+          >
+            Terminer
+          </button>
+        </div>
       </div>
 
       <details class="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
@@ -151,14 +159,19 @@ watch(
           <div
             v-for="task in tasksStore.completedTasks"
             :key="task.id"
-            class="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+            class="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
           >
-            <span>{{ task.shortDescription }}</span>
+            <div class="min-w-0">
+              <p class="truncate font-medium">{{ task.shortDescription }}</p>
+              <p class="mt-1 text-xs text-emerald-700/80">
+                Echeance {{ task.dueDate.slice(0, 10) }}
+              </p>
+            </div>
             <button
-              class="rounded-full bg-white px-3 py-1 text-xs text-emerald-700 transition hover:bg-emerald-100"
+              class="shrink-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
               @click="toggleTask(task.id, false)"
             >
-              reactiver
+              Reouvrir
             </button>
           </div>
         </div>
