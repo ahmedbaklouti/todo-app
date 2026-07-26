@@ -95,6 +95,12 @@ watch(newListName, (value) => {
 
     <template v-if="!props.collapsed">
       <form class="mb-4 space-y-3" @submit.prevent="createList">
+        <div class="space-y-1">
+          <h3 class="text-sm font-semibold text-zinc-900">Organiser mes listes</h3>
+          <p class="text-sm text-zinc-500">
+            Cree une liste pour structurer tes taches par sujet, client ou priorite.
+          </p>
+        </div>
         <input
           v-model="newListName"
           type="text"
@@ -116,29 +122,56 @@ watch(newListName, (value) => {
         v-if="listsStore.items.length === 0"
         class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500"
       >
-        Cree ta premiere liste pour commencer.
+        <p class="font-medium text-zinc-700">Aucune liste pour le moment.</p>
+        <p class="mt-2">
+          Cree ta premiere liste pour commencer a organiser ton espace de travail.
+        </p>
       </div>
 
       <div class="space-y-2">
-        <button
+        <div
           v-for="item in listsStore.items"
           :key="item.id"
-          class="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm transition"
-          :class="item.id === listsStore.selectedListId ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'"
-          @click="selectList(item.id)"
+          class="flex items-center gap-2 rounded-2xl border p-2 transition"
+          :class="
+            item.id === listsStore.selectedListId
+              ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+              : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100'
+          "
         >
-          <span>{{ item.name }}</span>
-          <span class="flex items-center gap-2 text-xs opacity-70">
-            <span>ouvrir</span>
-            <span
-              class="rounded-full px-2 py-1"
-              :class="item.id === listsStore.selectedListId ? 'bg-white/10 text-white' : 'bg-white text-zinc-500'"
-              @click.stop="askListDeletion(item.id)"
-            >
-              supprimer
+          <button
+            class="flex min-w-0 flex-1 items-center justify-between rounded-xl px-3 py-3 text-left text-sm transition"
+            @click="selectList(item.id)"
+          >
+            <span class="min-w-0">
+              <span class="block truncate font-medium">{{ item.name }}</span>
+              <span
+                class="mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
+                :class="
+                  item.id === listsStore.selectedListId
+                    ? 'bg-white/10 text-white'
+                    : 'bg-white text-zinc-500'
+                "
+              >
+                {{ item.id === listsStore.selectedListId ? 'Liste ouverte' : 'Ouvrir la liste' }}
+              </span>
             </span>
-          </span>
-        </button>
+          </button>
+
+          <button
+            type="button"
+            class="shrink-0 rounded-xl border px-3 py-2 text-xs font-medium transition"
+            :class="
+              item.id === listsStore.selectedListId
+                ? 'border-white/15 bg-white/10 text-white hover:bg-white/15'
+                : 'border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900'
+            "
+            aria-label="Supprimer la liste"
+            @click.stop="askListDeletion(item.id)"
+          >
+            Supprimer
+          </button>
+        </div>
       </div>
     </template>
 
