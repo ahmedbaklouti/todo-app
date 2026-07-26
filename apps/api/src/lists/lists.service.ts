@@ -23,7 +23,7 @@ export class ListsService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException('A list with this name already exists');
+        throw new ConflictException('Une liste avec ce nom existe deja.');
       }
 
       throw error;
@@ -37,7 +37,7 @@ export class ListsService {
     );
 
     if (!existingList) {
-      throw new NotFoundException('List not found');
+      throw new NotFoundException('Liste introuvable.');
     }
 
     return this.listsRepository.delete(id);

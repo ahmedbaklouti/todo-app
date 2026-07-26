@@ -32,7 +32,9 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(normalizedEmail);
 
     if (existingUser) {
-      throw new ConflictException('An account already exists for this email');
+      throw new ConflictException(
+        'Un compte existe deja pour cette adresse email',
+      );
     }
 
     const passwordHash = await bcrypt.hash(payload.password, 10);
@@ -51,7 +53,9 @@ export class AuthService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException('An account already exists for this email');
+        throw new ConflictException(
+          'Un compte existe deja pour cette adresse email',
+        );
       }
 
       throw error;
@@ -66,7 +70,9 @@ export class AuthService {
     );
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(
+        'Adresse email ou mot de passe incorrect.',
+      );
     }
 
     const passwordMatches = await bcrypt.compare(
@@ -75,7 +81,9 @@ export class AuthService {
     );
 
     if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException(
+        'Adresse email ou mot de passe incorrect.',
+      );
     }
 
     return this.createSession(user.id);
@@ -83,7 +91,7 @@ export class AuthService {
 
   async refresh(refreshToken?: string) {
     if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token is missing');
+      throw new UnauthorizedException('Le token de session est manquant.');
     }
 
     const refreshTokenHash = this.hashToken(refreshToken);
@@ -91,7 +99,9 @@ export class AuthService {
       await this.refreshTokensRepository.findByTokenHash(refreshTokenHash);
 
     if (!storedToken || storedToken.expiresAt <= new Date()) {
-      throw new UnauthorizedException('Refresh token is invalid or expired');
+      throw new UnauthorizedException(
+        'Le token de session est invalide ou expire.',
+      );
     }
 
     return this.createAccessSession(storedToken.userId, refreshToken);
@@ -117,7 +127,7 @@ export class AuthService {
     const user = await this.usersService.findById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Utilisateur introuvable.');
     }
 
     return this.toAuthUser(user);
@@ -170,7 +180,7 @@ export class AuthService {
     const user = await this.usersService.findById(userId);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Utilisateur introuvable.');
     }
 
     const accessToken = await this.signAccessToken({
@@ -197,11 +207,15 @@ export class AuthService {
       payload.email.toLowerCase().trim() !==
       payload.emailConfirmation.toLowerCase().trim()
     ) {
-      throw new BadRequestException('Email confirmation does not match');
+      throw new BadRequestException(
+        "La confirmation de l'adresse email ne correspond pas.",
+      );
     }
 
     if (payload.password !== payload.passwordConfirmation) {
-      throw new BadRequestException('Password confirmation does not match');
+      throw new BadRequestException(
+        'La confirmation du mot de passe ne correspond pas.',
+      );
     }
   }
 
@@ -231,7 +245,7 @@ export class AuthService {
     const value = this.configService.get<string>(key);
 
     if (!value) {
-      throw new Error(`${key} is not configured`);
+      throw new Error(`La variable ${key} n'est pas configuree`);
     }
 
     return value;

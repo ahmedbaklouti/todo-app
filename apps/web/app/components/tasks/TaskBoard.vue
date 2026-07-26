@@ -35,15 +35,10 @@ async function createTask() {
     taskForm.longDescription = '';
     taskForm.dueDate = '';
   } catch (error) {
-    errorMessage.value =
-      typeof error === 'object' &&
-      error !== null &&
-      'data' in error &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'message' in error.data
-        ? String(error.data.message)
-        : 'Impossible de creer la tache.';
+    errorMessage.value = useApiErrorMessage(
+      error,
+      'Impossible de creer la tache.',
+    );
   } finally {
     pending.value = false;
   }

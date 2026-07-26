@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const jwtSecret = configService.get<string>('JWT_ACCESS_SECRET');
 
     if (!jwtSecret) {
-      throw new Error('JWT_ACCESS_SECRET is not configured');
+      throw new Error("La variable JWT_ACCESS_SECRET n'est pas configuree");
     }
 
     super({
@@ -29,7 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findById(payload.sub);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Utilisateur introuvable.');
     }
 
     return {

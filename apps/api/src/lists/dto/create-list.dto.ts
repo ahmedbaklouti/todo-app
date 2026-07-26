@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 function trimStringValue(value: unknown) {
   return typeof value === 'string' ? value.trim() : value;
@@ -7,7 +7,8 @@ function trimStringValue(value: unknown) {
 
 export class CreateListDto {
   @Transform(({ value }: { value: unknown }) => trimStringValue(value))
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: 'Le nom de la liste est obligatoire.' })
+  @IsNotEmpty({ message: 'Le nom de la liste est obligatoire.' })
+  @MinLength(1, { message: 'Le nom de la liste est obligatoire.' })
   name!: string;
 }

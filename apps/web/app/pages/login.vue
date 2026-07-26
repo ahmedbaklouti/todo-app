@@ -34,15 +34,10 @@ async function submit() {
 
     await navigateTo('/');
   } catch (error) {
-    errorMessage.value =
-      typeof error === 'object' &&
-      error !== null &&
-      'data' in error &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'message' in error.data
-        ? String(error.data.message)
-        : "Une erreur est survenue pendant l'authentification.";
+    errorMessage.value = useApiErrorMessage(
+      error,
+      "Une erreur est survenue pendant l'authentification.",
+    );
   } finally {
     pending.value = false;
   }

@@ -71,7 +71,7 @@ export class TasksGateway
     );
 
     if (!list) {
-      throw new WsException('List not found');
+      throw new WsException('Liste introuvable.');
     }
 
     void client.join(`list:${payload.listId}`);
@@ -111,7 +111,7 @@ export class TasksGateway
       const token = this.extractToken(client);
 
       if (!token) {
-        next(new Error('Authentication token is missing'));
+        next(new Error("Le token d'authentification est manquant."));
         return;
       }
 
@@ -121,7 +121,7 @@ export class TasksGateway
 
       next();
     } catch {
-      next(new Error('Authentication failed'));
+      next(new Error("L'authentification a echoue."));
     }
   }
 

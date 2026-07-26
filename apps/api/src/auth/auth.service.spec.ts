@@ -1,4 +1,3 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { AuthService } from './auth.service';
@@ -138,7 +137,11 @@ describe('AuthService', () => {
         password: 'Password123',
         passwordConfirmation: 'Password123',
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toMatchObject({
+      response: {
+        message: "La confirmation de l'adresse email ne correspond pas.",
+      },
+    });
   });
 
   it('rejects login when password is invalid', async () => {
@@ -149,7 +152,11 @@ describe('AuthService', () => {
         email: 'john@example.com',
         password: 'wrong-password',
       }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    ).rejects.toMatchObject({
+      response: {
+        message: 'Adresse email ou mot de passe incorrect.',
+      },
+    });
   });
 
   it('refreshes a session when the refresh token is valid', async () => {

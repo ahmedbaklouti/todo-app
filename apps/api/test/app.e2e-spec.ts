@@ -15,6 +15,12 @@ type AuthSessionResponse = {
   accessToken: string;
 };
 
+type ApiErrorResponse = {
+  statusCode: number;
+  message: string | string[];
+  error: string;
+};
+
 type CreatedEntityResponse = {
   id: string;
 };
@@ -203,6 +209,57 @@ describe('Todo App flow (e2e)', () => {
     await prisma.task.deleteMany();
     await prisma.taskList.deleteMany();
     await prisma.user.deleteMany();
+  });
+
+  it('returns a french validation message when the email format is invalid', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const response = await request(httpServer)
+      .post('/auth/login')
+      .send({
+        email: 'adresse-invalide',
+        password: 'Password123',
+      })
+      .expect(400);
+
+    const body = response.body as ApiErrorResponse;
+
+    expect(body.statusCode).toBe(400);
+    expect(body.error).toBe('Requete invalide');
+    expect(body.message).toBe("L'adresse email doit etre valide.");
+  });
+
+  it('returns a generic french error when login credentials are invalid', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const response = await request(httpServer)
+      .post('/auth/login')
+      .send({
+        email: 'unknown@libheros.local',
+        password: 'wrong-password',
+      })
+      .expect(401);
+
+    const body = response.body as ApiErrorResponse;
+
+    expect(body.statusCode).toBe(401);
+    expect(body.error).toBe('Non autorise');
+    expect(body.message).toBe('Adresse email ou mot de passe incorrect.');
+  });
+
+  it('does not expose password length validation when the account does not exist', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const response = await request(httpServer)
+      .post('/auth/login')
+      .send({
+        email: 'unknown@libheros.local',
+        password: '123',
+      })
+      .expect(401);
+
+    const body = response.body as ApiErrorResponse;
+
+    expect(body.statusCode).toBe(401);
+    expect(body.error).toBe('Non autorise');
+    expect(body.message).toBe('Adresse email ou mot de passe incorrect.');
   });
 
   it('covers registration, token refresh, list creation, task creation, websocket propagation and task deletion', async () => {

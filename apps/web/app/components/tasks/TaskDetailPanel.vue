@@ -46,15 +46,10 @@ async function saveTask() {
       dueDate: editForm.dueDate,
     });
   } catch (error) {
-    errorMessage.value =
-      typeof error === 'object' &&
-      error !== null &&
-      'data' in error &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'message' in error.data
-        ? String(error.data.message)
-        : 'Impossible de mettre a jour la tache.';
+    errorMessage.value = useApiErrorMessage(
+      error,
+      'Impossible de mettre a jour la tache.',
+    );
   } finally {
     pending.value = false;
   }

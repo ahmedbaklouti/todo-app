@@ -8,16 +8,21 @@ function trimStringValue(value: unknown) {
 export class UpdateTaskDto {
   @Transform(({ value }: { value: unknown }) => trimStringValue(value))
   @IsOptional()
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: 'La description courte doit etre un texte.' })
+  @MinLength(1, {
+    message: 'La description courte ne peut pas etre vide.',
+  })
   shortDescription?: string;
 
   @Transform(({ value }: { value: unknown }) => trimStringValue(value))
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'La description longue doit etre un texte.' })
   longDescription?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString(
+    {},
+    { message: "La date d'echeance doit etre une date valide." },
+  )
   dueDate?: string;
 }

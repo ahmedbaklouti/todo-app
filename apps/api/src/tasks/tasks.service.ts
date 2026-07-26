@@ -18,7 +18,7 @@ export class TasksService {
     const list = await this.listsRepository.findByIdAndUserId(listId, userId);
 
     if (!list) {
-      throw new NotFoundException('List not found');
+      throw new NotFoundException('Liste introuvable.');
     }
 
     return this.tasksRepository.findByListIdAndUserId(listId, userId);
@@ -31,7 +31,7 @@ export class TasksService {
     );
 
     if (!list) {
-      throw new NotFoundException('List not found');
+      throw new NotFoundException('Liste introuvable.');
     }
 
     const task = await this.tasksRepository.create(dto);
@@ -43,7 +43,7 @@ export class TasksService {
     const task = await this.tasksRepository.findByIdAndUserId(id, userId);
 
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException('Tache introuvable.');
     }
 
     const updatedTask = await this.tasksRepository.updateStatus(
@@ -58,7 +58,7 @@ export class TasksService {
     const task = await this.tasksRepository.findByIdAndUserId(id, userId);
 
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException('Tache introuvable.');
     }
 
     const updatedTask = await this.tasksRepository.update(id, dto);
@@ -70,7 +70,7 @@ export class TasksService {
     const task = await this.tasksRepository.findByIdAndUserId(id, userId);
 
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException('Tache introuvable.');
     }
 
     const deletedTask = await this.tasksRepository.delete(id);

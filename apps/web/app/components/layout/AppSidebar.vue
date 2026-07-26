@@ -31,15 +31,10 @@ async function createList() {
     newListName.value = '';
     emit('select');
   } catch (error) {
-    errorMessage.value =
-      typeof error === 'object' &&
-      error !== null &&
-      'data' in error &&
-      typeof error.data === 'object' &&
-      error.data !== null &&
-      'message' in error.data
-        ? String(error.data.message)
-        : 'Impossible de creer la liste.';
+    errorMessage.value = useApiErrorMessage(
+      error,
+      'Impossible de creer la liste.',
+    );
   } finally {
     pending.value = false;
   }
