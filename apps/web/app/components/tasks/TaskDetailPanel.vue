@@ -107,7 +107,7 @@ watchEffect(() => {
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
-          <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Detail</p>
+          <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Tache</p>
           <div class="mt-2 flex flex-wrap items-center gap-2">
             <span
               class="rounded-full px-2.5 py-1 text-xs font-medium"
@@ -133,7 +133,7 @@ watchEffect(() => {
 
       <div class="grid gap-3 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-600">
         <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3">
-          <span class="font-medium text-zinc-900">Creee le</span>
+          <span class="font-medium text-zinc-900">Cree le</span>
           <span>{{ selectedTask.createdAt.slice(0, 10) }}</span>
         </div>
         <div class="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3">
@@ -180,7 +180,7 @@ watchEffect(() => {
             class="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
             :disabled="pending"
           >
-            {{ pending ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+            {{ pending ? 'Enregistrement...' : 'Enregistrer' }}
           </button>
 
           <button

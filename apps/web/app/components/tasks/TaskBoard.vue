@@ -75,7 +75,7 @@ watchEffect(() => {
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Taches</p>
         <h2 class="text-2xl font-semibold text-zinc-900">
-          {{ selectedList?.name ?? 'Liste active' }}
+          {{ selectedList?.name ?? 'Aucune liste selectionnee' }}
         </h2>
         <p class="mt-1 text-sm text-zinc-500">
           {{
@@ -115,12 +115,12 @@ watchEffect(() => {
           v-model="taskForm.shortDescription"
           type="text"
           class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-          placeholder="Description courte"
+          placeholder="Ex : Contacter le candidat"
         >
         <textarea
           v-model="taskForm.longDescription"
           class="min-h-24 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-          placeholder="Description longue optionnelle"
+          placeholder="Ajoute un contexte utile, des notes ou la prochaine action."
         />
         <div class="grid gap-3 md:grid-cols-[1fr_auto]">
           <input
@@ -132,7 +132,7 @@ watchEffect(() => {
             class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
             :disabled="pending"
           >
-            {{ pending ? 'Creation...' : 'Ajouter une tache' }}
+            {{ pending ? 'Creation en cours...' : 'Ajouter la tache' }}
           </button>
         </div>
         <p v-if="errorMessage" class="text-sm text-rose-600">
@@ -182,7 +182,7 @@ watchEffect(() => {
         <summary class="cursor-pointer list-none">
           <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-sm font-medium text-zinc-700">
-              Mes taches terminees ({{ completedTaskCount }})
+              Taches terminees ({{ completedTaskCount }})
             </span>
             <span class="text-xs text-zinc-500">
               Reouvre une tache si elle doit revenir dans le flux actif.

@@ -11,6 +11,39 @@ const { $socket } = useNuxtApp();
 const sidebarCollapsed = ref(false);
 const mobileSidebarOpen = ref(false);
 
+const userFullName = computed(() => {
+  if (!authStore.user) {
+    return 'Mon espace';
+  }
+
+  return `${authStore.user.firstName} ${authStore.user.lastName}`;
+});
+
+const userInitials = computed(() => {
+  if (!authStore.user) {
+    return 'ME';
+  }
+
+  return `${authStore.user.firstName.charAt(0)}${authStore.user.lastName.charAt(0)}`
+    .toUpperCase();
+});
+
+const selectedListName = computed(
+  () => listsStore.items.find((item) => item.id === listsStore.selectedListId)?.name ?? null,
+);
+
+function formatCount(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count > 1 ? plural : singular}`;
+}
+
+const workspaceSummary = computed(() => {
+  if (!selectedListName.value) {
+    return 'Aucune liste selectionnee pour le moment.';
+  }
+
+  return `${formatCount(tasksStore.activeTasks.length, 'tache')} en cours et ${formatCount(tasksStore.completedTasks.length, 'tache')} terminee${tasksStore.completedTasks.length > 1 ? 's' : ''} dans "${selectedListName.value}".`;
+});
+
 const dashboardLayoutClass = computed(() => {
   if (sidebarCollapsed.value) {
     return tasksStore.selectedTaskId
@@ -127,30 +160,60 @@ watch(
 <template>
   <main class="px-6 py-6">
     <header class="mb-6 rounded-3xl border border-zinc-200 bg-white px-6 py-5 shadow-sm">
-      <p class="text-xs uppercase tracking-[0.25em] text-zinc-400">Todo App</p>
-      <div class="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 class="text-3xl font-semibold text-zinc-900">Espace de travail</h1>
+      <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div class="min-w-0">
+          <p class="text-xs uppercase tracking-[0.25em] text-zinc-400">Todo App</p>
+          <h1 class="mt-3 text-3xl font-semibold text-zinc-900">Espace de travail</h1>
           <p class="mt-1 text-sm text-zinc-500">
-            Listes et taches chargees depuis l'API NestJS securisee par JWT.
+            Pilote tes listes et tes taches depuis une interface connectee a l'API NestJS securisee par JWT.
+          </p>
+
+          <div class="mt-4 flex flex-wrap items-center gap-2">
+            <span class="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-600">
+              {{ formatCount(listsStore.items.length, 'liste') }}
+            </span>
+            <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+              {{ formatCount(tasksStore.activeTasks.length, 'tache') }} en cours
+            </span>
+            <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+              {{ formatCount(tasksStore.completedTasks.length, 'tache') }} terminee{{ tasksStore.completedTasks.length > 1 ? 's' : '' }}
+            </span>
+          </div>
+
+          <p class="mt-3 text-sm text-zinc-500">
+            {{ workspaceSummary }}
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 xl:hidden"
-            @click="mobileSidebarOpen = true"
-          >
-            Mes listes
-          </button>
-          <div class="rounded-2xl bg-zinc-100 px-4 py-3 text-sm text-zinc-600">
-            {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
+
+        <div class="flex flex-col gap-3 xl:min-w-[320px] xl:items-end">
+          <div class="flex flex-wrap items-center gap-3 self-stretch xl:justify-end">
+            <button
+              class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 xl:hidden"
+              @click="mobileSidebarOpen = true"
+            >
+              Mes listes
+            </button>
+            <button
+              class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
+              @click="logout"
+            >
+              Se deconnecter
+            </button>
           </div>
-          <button
-            class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
-            @click="logout"
-          >
-            Se deconnecter
-          </button>
+
+          <div class="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+            <div class="flex size-12 items-center justify-center rounded-2xl bg-zinc-900 text-sm font-semibold text-white">
+              {{ userInitials }}
+            </div>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-zinc-900">
+                {{ userFullName }}
+              </p>
+              <p class="truncate text-sm text-zinc-500">
+                {{ authStore.user?.email }}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </header>
