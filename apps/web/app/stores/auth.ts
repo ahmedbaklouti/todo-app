@@ -14,6 +14,8 @@ type RegisterPayload = {
   passwordConfirmation: string;
 };
 
+let refreshSessionPromise: Promise<boolean> | null = null;
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null as AuthUser | null,
@@ -53,27 +55,32 @@ export const useAuthStore = defineStore('auth', {
       this.setSession(session);
     },
     async refreshSession() {
-      if (this.isRestoring) {
-        return this.isAuthenticated;
+      if (refreshSessionPromise) {
+        return refreshSessionPromise;
       }
 
       this.isRestoring = true;
 
-      try {
-        const session = await useApiFetch<AuthSession>('/auth/refresh', {
-          method: 'POST',
-          skipAuthRefresh: true,
-        });
+      refreshSessionPromise = (async () => {
+        try {
+          const session = await useApiFetch<AuthSession>('/auth/refresh', {
+            method: 'POST',
+            skipAuthRefresh: true,
+          });
 
-        this.setSession(session);
-        return true;
-      } catch {
-        this.clearSession();
-        return false;
-      } finally {
-        this.restoreAttempted = true;
-        this.isRestoring = false;
-      }
+          this.setSession(session);
+          return true;
+        } catch {
+          this.clearSession();
+          return false;
+        } finally {
+          this.restoreAttempted = true;
+          this.isRestoring = false;
+          refreshSessionPromise = null;
+        }
+      })();
+
+      return refreshSessionPromise;
     },
     async restoreSession() {
       if (this.isAuthenticated) {
