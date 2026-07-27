@@ -41,6 +41,8 @@ function confirmDialog() {
     <div
       v-if="modelValue"
       class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 px-4"
+      role="dialog"
+      aria-modal="true"
       @click.self="closeDialog"
     >
       <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
@@ -50,12 +52,14 @@ function confirmDialog() {
 
         <div class="mt-6 flex justify-end gap-3">
           <button
+            type="button"
             class="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
             @click="closeDialog"
           >
             {{ cancelLabel }}
           </button>
           <button
+            type="button"
             class="rounded-xl px-4 py-2 text-sm font-medium text-white transition"
             :class="confirmButtonClass"
             @click="confirmDialog"

@@ -18,6 +18,7 @@ export const useTasksStore = defineStore('tasks', {
     items: [] as TaskItem[],
     selectedTaskId: null as string | null,
     isLoading: false,
+    errorMessage: '',
   }),
   getters: {
     activeTasks: (state) => state.items.filter((task) => !task.completed),
@@ -55,10 +56,12 @@ export const useTasksStore = defineStore('tasks', {
       if (!listId) {
         this.items = [];
         this.selectedTaskId = null;
+        this.errorMessage = '';
         return;
       }
 
       this.isLoading = true;
+      this.errorMessage = '';
 
       try {
         const items = await useApiFetch<TaskItem[]>('/tasks', {
@@ -74,6 +77,13 @@ export const useTasksStore = defineStore('tasks', {
         if (!selectedStillExists) {
           this.selectedTaskId = null;
         }
+      } catch (error) {
+        this.items = [];
+        this.selectedTaskId = null;
+        this.errorMessage = useApiErrorMessage(
+          error,
+          'Impossible de charger les taches de cette liste.',
+        );
       } finally {
         this.isLoading = false;
       }
@@ -86,6 +96,7 @@ export const useTasksStore = defineStore('tasks', {
 
       this.upsertTask(item);
       this.selectedTaskId = item.id;
+      this.errorMessage = '';
       return item;
     },
     async toggleTaskStatus(id: string, completed: boolean) {
@@ -97,6 +108,7 @@ export const useTasksStore = defineStore('tasks', {
       });
 
       this.upsertTask(updatedTask);
+      this.errorMessage = '';
     },
     async updateTask(id: string, payload: UpdateTaskPayload) {
       const updatedTask = await useApiFetch<TaskItem>(`/tasks/${id}`, {
@@ -105,6 +117,7 @@ export const useTasksStore = defineStore('tasks', {
       });
 
       this.upsertTask(updatedTask);
+      this.errorMessage = '';
       return updatedTask;
     },
     async deleteTask(id: string) {
@@ -113,6 +126,7 @@ export const useTasksStore = defineStore('tasks', {
       });
 
       this.removeTaskFromState(id);
+      this.errorMessage = '';
     },
   },
 });

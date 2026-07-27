@@ -188,12 +188,16 @@ watch(
         <div class="flex flex-col gap-3 xl:min-w-[320px] xl:items-end">
           <div class="flex flex-wrap items-center gap-3 self-stretch xl:justify-end">
             <button
+              type="button"
               class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 xl:hidden"
+              :aria-expanded="mobileSidebarOpen"
+              aria-label="Ouvrir les listes"
               @click="mobileSidebarOpen = true"
             >
               Mes listes
             </button>
             <button
+              type="button"
               class="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
               @click="logout"
             >
@@ -234,11 +238,14 @@ watch(
       <div
         v-if="mobileSidebarOpen"
         class="fixed inset-0 z-40 bg-zinc-950/45 xl:hidden"
+        role="dialog"
+        aria-modal="true"
         @click.self="closeMobileSidebar"
       >
         <div class="ml-auto h-full w-full max-w-sm p-4">
           <div class="mb-3 flex items-center justify-end">
             <button
+              type="button"
               class="rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-600 shadow-sm transition hover:border-zinc-300 hover:text-zinc-900"
               @click="closeMobileSidebar"
             >

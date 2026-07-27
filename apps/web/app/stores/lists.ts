@@ -5,6 +5,7 @@ export const useListsStore = defineStore('lists', {
     items: [] as TaskList[],
     selectedListId: null as string | null,
     isLoading: false,
+    errorMessage: '',
   }),
   actions: {
     setLists(items: TaskList[]) {
@@ -15,6 +16,7 @@ export const useListsStore = defineStore('lists', {
     },
     async fetchLists() {
       this.isLoading = true;
+      this.errorMessage = '';
 
       try {
         const items = await useApiFetch<TaskList[]>('/lists');
@@ -30,6 +32,11 @@ export const useListsStore = defineStore('lists', {
         if (!selectedStillExists) {
           this.selectedListId = items[0]?.id ?? null;
         }
+      } catch (error) {
+        this.errorMessage = useApiErrorMessage(
+          error,
+          'Impossible de charger les listes.',
+        );
       } finally {
         this.isLoading = false;
       }
@@ -44,6 +51,7 @@ export const useListsStore = defineStore('lists', {
 
       this.items.push(item);
       this.selectedListId = item.id;
+      this.errorMessage = '';
       return item;
     },
     async deleteList(id: string) {
@@ -56,6 +64,8 @@ export const useListsStore = defineStore('lists', {
       if (this.selectedListId === id) {
         this.selectedListId = this.items[0]?.id ?? null;
       }
+
+      this.errorMessage = '';
     },
   },
 });

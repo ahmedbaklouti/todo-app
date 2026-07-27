@@ -124,7 +124,9 @@ watchEffect(() => {
           </h2>
         </div>
         <button
+          type="button"
           class="rounded-xl border border-zinc-200 px-3 py-2 text-sm text-zinc-500 transition hover:border-zinc-300 hover:text-zinc-900"
+          aria-label="Fermer le panneau de details"
           @click="closePanel"
         >
           Fermer

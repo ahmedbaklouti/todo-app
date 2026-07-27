@@ -18,6 +18,10 @@ const selectedList = computed(
 const activeTaskCount = computed(() => tasksStore.activeTasks.length);
 const completedTaskCount = computed(() => tasksStore.completedTasks.length);
 
+async function retryTasksFetch() {
+  await tasksStore.fetchTasks(selectedList.value?.id ?? null);
+}
+
 async function createTask() {
   if (!selectedList.value) {
     errorMessage.value = 'Selectionne une liste avant de creer une tache.';
@@ -70,7 +74,10 @@ watchEffect(() => {
 </script>
 
 <template>
-  <section class="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
+  <section
+    class="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm"
+    :aria-busy="tasksStore.isLoading"
+  >
     <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-[0.2em] text-zinc-400">Taches</p>
@@ -116,21 +123,24 @@ watchEffect(() => {
           type="text"
           class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
           placeholder="Ex : Contacter le candidat"
+          :disabled="pending || tasksStore.isLoading"
         >
         <textarea
           v-model="taskForm.longDescription"
           class="min-h-24 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
           placeholder="Ajoute un contexte utile, des notes ou la prochaine action."
+          :disabled="pending || tasksStore.isLoading"
         />
         <div class="grid gap-3 md:grid-cols-[1fr_auto]">
           <input
             v-model="taskForm.dueDate"
             type="date"
             class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+            :disabled="pending || tasksStore.isLoading"
           >
           <button
             class="rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
-            :disabled="pending"
+            :disabled="pending || tasksStore.isLoading"
           >
             {{ pending ? 'Creation en cours...' : 'Ajouter la tache' }}
           </button>
@@ -140,7 +150,33 @@ watchEffect(() => {
         </p>
       </form>
 
-      <div v-if="tasksStore.activeTasks.length === 0" class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
+      <div
+        v-if="tasksStore.errorMessage"
+        class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-5"
+      >
+        <p class="text-sm font-medium text-rose-700">{{ tasksStore.errorMessage }}</p>
+        <button
+          type="button"
+          class="mt-3 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+          @click="retryTasksFetch"
+        >
+          Recharger les taches
+        </button>
+      </div>
+
+      <div v-else-if="tasksStore.isLoading" class="space-y-3">
+        <div
+          v-for="index in 3"
+          :key="index"
+          class="animate-pulse rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+        >
+          <div class="h-4 w-24 rounded bg-zinc-200" />
+          <div class="mt-3 h-4 w-2/3 rounded bg-zinc-200" />
+          <div class="mt-3 h-3 w-28 rounded bg-zinc-200" />
+        </div>
+      </div>
+
+      <div v-else-if="tasksStore.activeTasks.length === 0" class="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-10 text-center text-sm text-zinc-500">
         Aucune tache active sur cette liste.
       </div>
 
@@ -151,7 +187,9 @@ watchEffect(() => {
           class="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 transition hover:border-blue-300 hover:bg-blue-50/30"
         >
           <button
+            type="button"
             class="flex min-w-0 flex-1 items-center gap-4 rounded-xl px-2 py-2 text-left transition hover:bg-white/80"
+            :aria-label="`Ouvrir le detail de la tache ${task.shortDescription}`"
             @click="tasksStore.selectTask(task.id)"
           >
             <span
@@ -170,7 +208,9 @@ watchEffect(() => {
           </button>
 
           <button
+            type="button"
             class="shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+            :aria-label="`Marquer la tache ${task.shortDescription} comme terminee`"
             @click="toggleTask(task.id, true)"
           >
             Terminer
@@ -210,7 +250,9 @@ watchEffect(() => {
               </p>
             </div>
             <button
+              type="button"
               class="shrink-0 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+              :aria-label="`Reouvrir la tache ${task.shortDescription}`"
               @click="toggleTask(task.id, false)"
             >
               Reouvrir
