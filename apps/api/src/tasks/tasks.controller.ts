@@ -3,16 +3,18 @@ import {
   Controller,
   Delete,
   Get,
-  Param,
   Patch,
   Post,
-  Query,
   UseGuards,
+  Param,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { FindTasksQueryDto } from './dto/find-tasks-query.dto';
+import { TaskIdParamDto } from './dto/task-id-param.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { TasksService } from './tasks.service';
@@ -23,8 +25,8 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser, @Query('listId') listId: string) {
-    return this.tasksService.findAll(user.id, listId);
+  findAll(@CurrentUser() user: AuthUser, @Query() query: FindTasksQueryDto) {
+    return this.tasksService.findAll(user.id, query.listId);
   }
 
   @Post()
@@ -35,23 +37,23 @@ export class TasksController {
   @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param() params: TaskIdParamDto,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.tasksService.update(user.id, id, dto);
+    return this.tasksService.update(user.id, params.id, dto);
   }
 
   @Patch(':id/complete')
   updateStatus(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
+    @Param() params: TaskIdParamDto,
     @Body() dto: UpdateTaskStatusDto,
   ) {
-    return this.tasksService.updateStatus(user.id, id, dto);
+    return this.tasksService.updateStatus(user.id, params.id, dto);
   }
 
   @Delete(':id')
-  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.tasksService.remove(user.id, id);
+  remove(@CurrentUser() user: AuthUser, @Param() params: TaskIdParamDto) {
+    return this.tasksService.remove(user.id, params.id);
   }
 }

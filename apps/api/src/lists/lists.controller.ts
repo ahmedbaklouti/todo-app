@@ -3,14 +3,15 @@ import {
   Controller,
   Delete,
   Get,
-  Param,
   Post,
   UseGuards,
+  Param,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { CreateListDto } from './dto/create-list.dto';
+import { ListIdParamDto } from './dto/list-id-param.dto';
 import { ListsService } from './lists.service';
 
 @UseGuards(JwtAuthGuard)
@@ -29,7 +30,7 @@ export class ListsController {
   }
 
   @Delete(':id')
-  remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.listsService.remove(user.id, id);
+  remove(@CurrentUser() user: AuthUser, @Param() params: ListIdParamDto) {
+    return this.listsService.remove(user.id, params.id);
   }
 }
