@@ -4,6 +4,10 @@ const tasksStore = useTasksStore();
 
 const pending = ref(false);
 const errorMessage = ref('');
+const fieldErrors = reactive({
+  shortDescription: '',
+  dueDate: '',
+});
 
 const taskForm = reactive({
   shortDescription: '',
@@ -28,13 +32,19 @@ async function createTask() {
     return;
   }
 
+  fieldErrors.shortDescription = '';
+  fieldErrors.dueDate = '';
+
   if (!taskForm.shortDescription.trim()) {
-    errorMessage.value = 'La description courte est obligatoire.';
-    return;
+    fieldErrors.shortDescription = 'La description courte est obligatoire.';
   }
 
   if (!taskForm.dueDate) {
-    errorMessage.value = "La date d'echeance est obligatoire.";
+    fieldErrors.dueDate = "La date d'echeance est obligatoire.";
+  }
+
+  if (fieldErrors.shortDescription || fieldErrors.dueDate) {
+    errorMessage.value = 'Complete les champs obligatoires avant de creer la tache.';
     return;
   }
 
@@ -67,10 +77,33 @@ async function toggleTask(taskId: string, completed: boolean) {
 }
 
 watchEffect(() => {
-  if (taskForm.shortDescription.trim() && taskForm.dueDate) {
+  if (
+    !fieldErrors.shortDescription &&
+    !fieldErrors.dueDate &&
+    taskForm.shortDescription.trim() &&
+    taskForm.dueDate
+  ) {
     errorMessage.value = '';
   }
 });
+
+watch(
+  () => taskForm.shortDescription,
+  (value) => {
+    if (value.trim()) {
+      fieldErrors.shortDescription = '';
+    }
+  },
+);
+
+watch(
+  () => taskForm.dueDate,
+  (value) => {
+    if (value) {
+      fieldErrors.dueDate = '';
+    }
+  },
+);
 </script>
 
 <template>
@@ -121,10 +154,16 @@ watchEffect(() => {
         <input
           v-model="taskForm.shortDescription"
           type="text"
-          class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+          class="w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+          :class="fieldErrors.shortDescription ? 'border-rose-300 focus:border-rose-500' : 'border-zinc-200'"
           placeholder="Ex : Contacter le candidat"
+          required
+          :aria-invalid="Boolean(fieldErrors.shortDescription)"
           :disabled="pending || tasksStore.isLoading"
         >
+        <p v-if="fieldErrors.shortDescription" class="text-sm text-rose-600">
+          {{ fieldErrors.shortDescription }}
+        </p>
         <textarea
           v-model="taskForm.longDescription"
           class="min-h-24 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
@@ -135,7 +174,10 @@ watchEffect(() => {
           <input
             v-model="taskForm.dueDate"
             type="date"
-            class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+            class="w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500"
+            :class="fieldErrors.dueDate ? 'border-rose-300 focus:border-rose-500' : 'border-zinc-200'"
+            required
+            :aria-invalid="Boolean(fieldErrors.dueDate)"
             :disabled="pending || tasksStore.isLoading"
           >
           <button
@@ -145,6 +187,9 @@ watchEffect(() => {
             {{ pending ? 'Creation en cours...' : 'Ajouter la tache' }}
           </button>
         </div>
+        <p v-if="fieldErrors.dueDate" class="text-sm text-rose-600">
+          {{ fieldErrors.dueDate }}
+        </p>
         <p v-if="errorMessage" class="text-sm text-rose-600">
           {{ errorMessage }}
         </p>
@@ -222,7 +267,7 @@ watchEffect(() => {
         <summary class="cursor-pointer list-none">
           <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <span class="text-sm font-medium text-zinc-700">
-              Taches terminees ({{ completedTaskCount }})
+              Mes tâches terminées ({{ completedTaskCount }})
             </span>
             <span class="text-xs text-zinc-500">
               Reouvre une tache si elle doit revenir dans le flux actif.

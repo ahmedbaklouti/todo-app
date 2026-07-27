@@ -63,7 +63,8 @@ async function confirmListDeletion() {
 }
 
 function selectList(id: string) {
-  listsStore.selectList(id);
+  const nextSelectedListId = listsStore.selectedListId === id ? null : id;
+  listsStore.selectList(nextSelectedListId);
   emit('select');
 }
 
@@ -187,7 +188,7 @@ watch(newListName, (value) => {
                     : 'bg-white text-zinc-500'
                 "
               >
-                {{ item.id === listsStore.selectedListId ? 'Sélectionnée' : 'Ouvrir la liste' }}
+                {{ item.id === listsStore.selectedListId ? 'Deselectionner la liste' : 'Ouvrir la liste' }}
               </span>
             </span>
           </button>
